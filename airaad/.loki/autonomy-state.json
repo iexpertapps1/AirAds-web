@@ -1,0 +1,10 @@
+{
+    "retryCount": 0,
+    "status": "interrupted",
+    "lastExitCode": 130,
+    "lastRun": "2026-02-22T15:28:01Z",
+    "prdPath": "/Users/syedsmacbook/Developer/AirAds-web/plans/02_FRONTEND_PLAN.md",
+    "pid": 60918,
+    "maxRetries": 50,
+    "baseWait": 60
+}

@@ -1,0 +1,63 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-pill);
+  font: var(--text-label);
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Sizes */
+.sm {
+  height: 20px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.md {
+  height: 24px;
+}
+
+/* Variants */
+.success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.error {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+.info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.neutral {
+  background: var(--color-grey-100);
+  color: var(--color-hof);
+}
+
+/* Animated spinner for PROCESSING state */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

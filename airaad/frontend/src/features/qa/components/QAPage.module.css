@@ -1,0 +1,53 @@
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--text-heading-sm);
+  color: var(--color-hof);
+  margin-bottom: var(--space-4);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-weight: 600;
+}
+
+.vendorName {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.location {
+  font: var(--text-body);
+  color: var(--color-foggy);
+}
+
+.urgentDays {
+  color: var(--color-error-text);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.bulkNote {
+  font: var(--text-body);
+  color: var(--color-hof);
+}

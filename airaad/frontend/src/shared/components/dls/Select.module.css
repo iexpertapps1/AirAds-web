@@ -1,0 +1,33 @@
+.select {
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-grey-300);
+  border-radius: var(--radius-md);
+  font: var(--text-body);
+  color: var(--color-hof);
+  background: var(--color-white);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+  width: 100%;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23484848' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: var(--space-8);
+}
+
+.select:hover:not(:disabled) {
+  border-color: var(--color-grey-700);
+}
+
+.select:focus {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+  border-color: var(--color-grey-900);
+}
+
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--color-grey-100);
+}

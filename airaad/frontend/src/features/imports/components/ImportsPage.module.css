@@ -1,0 +1,207 @@
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-8);
+  border: 2px dashed var(--color-grey-300);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+  margin-bottom: var(--space-6);
+}
+
+.dropZone:hover,
+.dropZone:focus-visible {
+  border-color: var(--color-rausch);
+  background: rgba(255, 90, 95, 0.02);
+  outline: none;
+}
+
+.dropZoneDragging {
+  border-color: var(--color-rausch);
+  background: rgba(255, 90, 95, 0.04);
+}
+
+.uploadIcon {
+  color: var(--color-grey-400);
+}
+
+.dropText {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.browseLink {
+  color: var(--color-rausch);
+  text-decoration: underline;
+}
+
+.dropHint {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.preview {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-grey-200);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.previewHeader {
+  margin-bottom: var(--space-4);
+}
+
+.previewTitle {
+  font: var(--text-heading-sm);
+  color: var(--color-hof);
+}
+
+.missingCols {
+  font: var(--text-body-sm);
+  color: var(--color-error-text);
+  background: var(--color-error-bg);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
+}
+
+.previewTableWrapper {
+  overflow-x: auto;
+  margin-bottom: var(--space-4);
+}
+
+.previewTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-caption);
+}
+
+.previewTh {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-grey-50);
+  border-bottom: 1px solid var(--color-grey-200);
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.missingCol {
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+}
+
+.previewTd {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-grey-100);
+  color: var(--color-hof);
+}
+
+.previewActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.fileName {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.statGood {
+  color: var(--color-success-text);
+  font: var(--text-body-strong);
+}
+
+.statBad {
+  color: var(--color-error-text);
+  font: var(--text-body-strong);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.drawerContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.progressSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.progressLabel {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.progressBar {
+  height: 8px;
+  background: var(--color-grey-200);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  width: var(--progress-width, 0%);
+  background: var(--color-rausch);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.progressStats {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.errorLog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.errorLogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.errorLogTitle {
+  font: var(--text-heading-sm);
+  color: var(--color-hof);
+}
+
+.errorTable {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-caption);
+}
+
+.errorTable th {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-grey-50);
+  border-bottom: 1px solid var(--color-grey-200);
+  text-align: left;
+  font-weight: 600;
+}
+
+.errorTable td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-grey-100);
+  color: var(--color-hof);
+}

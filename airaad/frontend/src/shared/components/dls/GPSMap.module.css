@@ -1,0 +1,7 @@
+.map {
+  width: 100%;
+  height: var(--map-height, 240px);
+  border-radius: var(--radius-md);
+  background: var(--color-grey-100);
+  z-index: 0;
+}

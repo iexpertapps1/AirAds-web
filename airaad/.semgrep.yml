@@ -1,0 +1,317 @@
+rules:
+  # ---------------------------------------------------------------------------
+  # DJANGO / DRF — Security
+  # ---------------------------------------------------------------------------
+
+  - id: django-raw-sql-injection
+    patterns:
+      - pattern: $MODEL.objects.raw($QUERY, ...)
+      - pattern-not: $MODEL.objects.raw("...", ...)
+    message: >
+      Possible SQL injection via raw query with dynamic string.
+      Use parameterised queries: Model.objects.raw("SELECT ... WHERE x = %s", [val])
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-89
+      owasp: A03
+
+  - id: django-extra-sql-injection
+    patterns:
+      - pattern: $QS.extra(where=[$EXPR], ...)
+      - pattern-not: $QS.extra(where=["..."], ...)
+    message: >
+      QuerySet.extra(where=...) with dynamic expression risks SQL injection.
+      Prefer ORM filters or parameterised raw SQL.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-89
+      owasp: A03
+
+  - id: django-debug-true-hardcoded
+    pattern: DEBUG = True
+    message: >
+      DEBUG=True must never be hardcoded in settings files committed to VCS.
+      Use environ.bool("DEBUG", default=False).
+    languages: [python]
+    severity: ERROR
+    paths:
+      include:
+        - "**/settings/**/*.py"
+    metadata:
+      category: security
+      cwe: CWE-215
+      owasp: A05
+
+  - id: django-secret-key-hardcoded
+    patterns:
+      - pattern: SECRET_KEY = "$KEY"
+      - pattern-not: SECRET_KEY = env(...)
+      - pattern-not: SECRET_KEY = os.environ[...]
+      - pattern-not: SECRET_KEY = os.getenv(...)
+    message: >
+      SECRET_KEY is hardcoded. Read it from environment: SECRET_KEY = env("SECRET_KEY")
+    languages: [python]
+    severity: ERROR
+    paths:
+      include:
+        - "**/settings/**/*.py"
+    metadata:
+      category: security
+      cwe: CWE-798
+      owasp: A02
+
+  - id: drf-allowany-on-sensitive-view
+    patterns:
+      - pattern: |
+          class $VIEW(...):
+              permission_classes = [AllowAny]
+      - pattern-not-inside: |
+          class $VIEW(TokenObtainPairView, ...):
+              ...
+    message: >
+      AllowAny on a non-auth view exposes it to unauthenticated access.
+      Verify this is intentional; prefer IsAuthenticated or a custom permission.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-284
+      owasp: A01
+
+  - id: drf-missing-throttle-on-auth-view
+    patterns:
+      - pattern: |
+          class $VIEW(TokenObtainPairView, ...):
+              ...
+      - pattern-not: |
+          class $VIEW(TokenObtainPairView, ...):
+              throttle_classes = [...]
+              ...
+    message: >
+      Auth token view has no throttle_classes. Add AnonRateThrottle or a custom
+      throttle to prevent credential-stuffing attacks.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-307
+      owasp: A07
+
+  - id: django-csrf-exempt-misuse
+    pattern: |
+      @csrf_exempt
+      def $FUNC(...):
+          ...
+    message: >
+      @csrf_exempt disables CSRF protection. Ensure this endpoint is either
+      stateless (JWT-only) or has an alternative CSRF mitigation in place.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-352
+      owasp: A01
+
+  - id: hardcoded-password-in-python
+    patterns:
+      - pattern: password = "$PASS"
+      - pattern-not: password = ""
+      - pattern-not: password = "..."
+    message: Hardcoded password detected. Use environment variables or secrets manager.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-798
+      owasp: A02
+
+  - id: hardcoded-api-key-in-python
+    patterns:
+      - pattern: api_key = "$KEY"
+      - pattern: API_KEY = "$KEY"
+    message: Hardcoded API key detected. Read from environment variables.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-798
+      owasp: A02
+
+  # ---------------------------------------------------------------------------
+  # DJANGO — Performance
+  # ---------------------------------------------------------------------------
+
+  - id: django-n-plus-1-loop-queryset
+    patterns:
+      - pattern: |
+          for $ITEM in $QS:
+              $ITEM.$REL.all()
+      - pattern: |
+          for $ITEM in $QS:
+              $ITEM.$REL.filter(...)
+    message: >
+      Possible N+1 query: accessing a related manager inside a loop.
+      Use select_related() or prefetch_related() on the outer queryset.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: performance
+      cwe: CWE-400
+
+  - id: django-count-vs-exists
+    pattern: $QS.count() > 0
+    message: >
+      Use $QS.exists() instead of .count() > 0 — it stops at the first row
+      and avoids a full COUNT(*) scan.
+    languages: [python]
+    severity: INFO
+    metadata:
+      category: performance
+
+  - id: django-len-queryset
+    pattern: len($QS.filter(...))
+    message: >
+      Avoid len() on a QuerySet — it evaluates the full result set.
+      Use .count() for counting or .exists() for existence checks.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: performance
+
+  # ---------------------------------------------------------------------------
+  # DJANGO — Maintainability
+  # ---------------------------------------------------------------------------
+
+  - id: django-print-in-view
+    patterns:
+      - pattern: print(...)
+      - pattern-inside: |
+          class $VIEW(APIView, ...):
+              ...
+      - pattern-inside: |
+          def $FUNC(request, ...):
+              ...
+    message: >
+      print() found in a view. Use Python logging (logger.debug / logger.info)
+      so output is controlled by log level configuration.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: maintainability
+
+  - id: broad-exception-catch
+    pattern: |
+      try:
+          ...
+      except Exception:
+          pass
+    message: >
+      Silently swallowing all exceptions hides bugs. Log the exception or
+      re-raise after handling.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: maintainability
+      cwe: CWE-390
+
+  # ---------------------------------------------------------------------------
+  # JAVASCRIPT / TYPESCRIPT — Security
+  # ---------------------------------------------------------------------------
+
+  - id: react-dangerouslysetinnerhtml
+    pattern: dangerouslySetInnerHTML={{ __html: $EXPR }}
+    message: >
+      dangerouslySetInnerHTML with a dynamic expression risks XSS.
+      Sanitise $EXPR with DOMPurify before rendering.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-79
+      owasp: A03
+
+  - id: hardcoded-secret-in-ts
+    patterns:
+      - pattern: const $KEY = "$VAL"
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i)(secret|api_key|apikey|token|password|passwd|auth_key)
+      - metavariable-regex:
+          metavariable: $VAL
+          regex: .{8,}
+    message: >
+      Possible hardcoded secret in TypeScript/JavaScript source.
+      Use import.meta.env.VITE_* variables and never commit real secrets.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-798
+      owasp: A02
+
+  - id: localstorage-sensitive-data
+    patterns:
+      - pattern: localStorage.setItem($KEY, $VAL)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i)(token|password|secret|auth|jwt|refresh)
+    message: >
+      Storing sensitive data (token/password) in localStorage exposes it to XSS.
+      For JWTs, prefer httpOnly cookies or in-memory storage.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-922
+      owasp: A02
+
+  - id: eval-usage
+    pattern: eval($EXPR)
+    message: >
+      eval() executes arbitrary code and is a common XSS vector.
+      Refactor to avoid dynamic code execution.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-95
+      owasp: A03
+
+  - id: console-log-in-production-ts
+    pattern: console.log(...)
+    message: >
+      console.log() left in source. Use the project logger utility
+      (src/shared/utils/logger.ts) which is silenced in production.
+    languages: [typescript, javascript]
+    severity: INFO
+    paths:
+      include:
+        - "airaad/frontend/src/**"
+    metadata:
+      category: maintainability
+
+  # ---------------------------------------------------------------------------
+  # SECRETS — Generic patterns (cross-language)
+  # ---------------------------------------------------------------------------
+
+  - id: generic-aws-access-key
+    pattern-regex: AKIA[0-9A-Z]{16}
+    message: AWS Access Key ID pattern detected. Rotate immediately and remove from source.
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-798
+
+  - id: generic-private-key-header
+    pattern-regex: "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"
+    message: Private key material detected in source. Remove and rotate immediately.
+    languages: [generic]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-321

@@ -1,0 +1,14 @@
+# =============================================================================
+# AirAd Backend — Development Requirements
+# psycopg2-binary is acceptable in development for ease of setup.
+# =============================================================================
+
+-r base.txt
+
+# PostgreSQL adapter — binary acceptable in dev only
+psycopg2-binary==2.9.10
+
+# Dev tools
+django-extensions==3.2.3
+ipython==8.31.0
+Werkzeug==3.1.3

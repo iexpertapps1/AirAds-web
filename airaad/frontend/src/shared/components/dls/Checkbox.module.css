@@ -1,0 +1,39 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  min-height: 44px;
+  font: var(--text-body);
+  color: var(--color-hof);
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-grey-300);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  accent-color: var(--color-rausch);
+  flex-shrink: 0;
+}
+
+.checkbox:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+}
+
+.labelText {
+  user-select: none;
+}
+
+.error {
+  font: var(--text-caption);
+  color: var(--color-error-text);
+}

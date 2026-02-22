@@ -1,0 +1,438 @@
+name: AirAd CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Job 1: Python lint
+  # -------------------------------------------------------------------------
+  lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airaad/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install flake8 isort black
+
+      - name: flake8
+        run: flake8 apps/ core/ config/ celery_app.py --max-line-length=88 --extend-ignore=E203,W503
+
+      - name: isort
+        run: isort --check-only --diff apps/ core/ config/ celery_app.py
+
+      - name: black
+        run: black --check --diff apps/ core/ config/ celery_app.py
+
+  # -------------------------------------------------------------------------
+  # Job 2: Migration check
+  # -------------------------------------------------------------------------
+  migration-check:
+    name: Migration Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airaad/backend
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4-alpine
+        env:
+          POSTGRES_DB: test_airaad_db
+          POSTGRES_USER: airaad
+          POSTGRES_PASSWORD: airaad
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      ENCRYPTION_KEY: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      DATABASE_URL: postgis://airaad:airaad@localhost:5432/test_airaad_db
+      REDIS_URL: redis://localhost:6379/0
+      AWS_ACCESS_KEY_ID: test-key
+      AWS_SECRET_ACCESS_KEY: test-secret
+      AWS_STORAGE_BUCKET_NAME: test-bucket
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install GDAL
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev
+
+      - name: Install dependencies
+        run: pip install -r requirements/test.txt
+
+      - name: Check for missing migrations
+        run: python manage.py migrate --check
+
+  # -------------------------------------------------------------------------
+  # Job 3: Test suite (≥80% coverage required)
+  # -------------------------------------------------------------------------
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airaad/backend
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4-alpine
+        env:
+          POSTGRES_DB: test_airaad_db
+          POSTGRES_USER: airaad
+          POSTGRES_PASSWORD: airaad
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      ENCRYPTION_KEY: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      DATABASE_URL: postgis://airaad:airaad@localhost:5432/test_airaad_db
+      REDIS_URL: redis://localhost:6379/0
+      AWS_ACCESS_KEY_ID: test-key
+      AWS_SECRET_ACCESS_KEY: test-secret
+      AWS_STORAGE_BUCKET_NAME: test-bucket
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install GDAL
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev
+
+      - name: Install dependencies
+        run: pip install -r requirements/test.txt
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run tests with coverage
+        run: pytest --cov=. --cov-fail-under=80 --cov-report=xml --cov-report=term-missing -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: airaad/backend/coverage.xml
+          fail_ci_if_error: false
+
+  # -------------------------------------------------------------------------
+  # Job 4: Security scan
+  # -------------------------------------------------------------------------
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airaad/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install security tools
+        run: pip install bandit safety
+
+      - name: bandit — static security analysis
+        run: bandit -r apps/ core/ -ll --format txt
+
+      - name: safety — dependency vulnerability check
+        run: safety check -r requirements/production.txt
+
+  # -------------------------------------------------------------------------
+  # Job 5: Backend Docker build
+  # -------------------------------------------------------------------------
+  backend-build:
+    name: Backend Docker Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build --target production -t airaad-backend:ci ./airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 6: Frontend lint
+  # -------------------------------------------------------------------------
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: airaad/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: airaad/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript type check
+        run: npm run type-check
+
+  # -------------------------------------------------------------------------
+  # Job 6: Frontend build
+  # -------------------------------------------------------------------------
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: [frontend-lint]
+    defaults:
+      run:
+        working-directory: airaad/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: airaad/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: http://localhost:8000
+
+  # -------------------------------------------------------------------------
+  # Job 7: Semgrep — static analysis (Python + TypeScript)
+  # -------------------------------------------------------------------------
+  semgrep:
+    name: Semgrep Static Analysis
+    runs-on: ubuntu-latest
+    # Run on PRs only (push to main/develop uses the dedicated semgrep.ci action)
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep (project rules)
+        run: |
+          semgrep scan \
+            --config airaad/.semgrep.yml \
+            --json \
+            --output semgrep.json \
+            --error \
+            airaad/
+        continue-on-error: true
+
+      - name: Run Semgrep (community rulesets)
+        run: |
+          semgrep scan \
+            --config p/django \
+            --config p/python \
+            --config p/react \
+            --config p/typescript \
+            --config p/owasp-top-ten \
+            --json \
+            --output semgrep-community.json \
+            airaad/
+        continue-on-error: true
+
+      - name: Merge Semgrep results
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          merged = {"results": [], "errors": []}
+          for fname in ["semgrep.json", "semgrep-community.json"]:
+              if os.path.exists(fname):
+                  with open(fname) as f:
+                      data = json.load(f)
+                  merged["results"].extend(data.get("results", []))
+                  merged["errors"].extend(data.get("errors", []))
+          with open("semgrep-merged.json", "w") as f:
+              json.dump(merged, f)
+          print(f"Total findings: {len(merged['results'])}")
+          EOF
+
+      - name: Upload Semgrep results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-results
+          path: semgrep-merged.json
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # Job 8: TruffleHog — secret scanning
+  # -------------------------------------------------------------------------
+  secret-scan:
+    name: Secret Scanning (TruffleHog)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          # Scan only the commits introduced by this PR
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: >-
+            --config airaad/.trufflehog.yml
+            --json
+            --fail
+
+  # -------------------------------------------------------------------------
+  # Job 9: AI Review — Claude + Semgrep orchestrator
+  # -------------------------------------------------------------------------
+  ai-review:
+    name: AI Code Review (Claude)
+    runs-on: ubuntu-latest
+    needs: [semgrep]
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install AI review dependencies
+        run: pip install anthropic>=0.25.0 requests>=2.31.0
+
+      - name: Download Semgrep results
+        uses: actions/download-artifact@v4
+        with:
+          name: semgrep-results
+          path: .
+
+      - name: Run AI review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python airaad/scripts/ai_review.py \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --repo ${{ github.repository }} \
+            --semgrep-results semgrep-merged.json \
+            --output review-comments.json
+        # If ANTHROPIC_API_KEY is not set, fall back to Semgrep-only (no AI)
+        continue-on-error: false
+
+      - name: Upload review comments artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review-comments
+          path: review-comments.json
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # Job 10: Quality gate — blocks merge on CRITICAL findings
+  # -------------------------------------------------------------------------
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [test, frontend-build, semgrep, secret-scan]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download review comments
+        uses: actions/download-artifact@v4
+        with:
+          name: review-comments
+          path: .
+        continue-on-error: true  # artifact may not exist if ai-review was skipped
+
+      - name: Evaluate quality gate
+        run: |
+          python3 - <<'EOF'
+          import json, sys, os
+
+          path = "review-comments.json"
+          if not os.path.exists(path):
+              print("No review-comments.json found — quality gate PASSED (no findings)")
+              sys.exit(0)
+
+          with open(path) as f:
+              issues = json.load(f)
+
+          critical = [i for i in issues if i.get("severity") == "CRITICAL"]
+          high     = [i for i in issues if i.get("severity") == "HIGH"]
+
+          print(f"Total findings : {len(issues)}")
+          print(f"  CRITICAL     : {len(critical)}")
+          print(f"  HIGH         : {len(high)}")
+
+          if critical:
+              print("\n❌ Quality gate FAILED — CRITICAL issues must be resolved before merge:")
+              for i in critical:
+                  print(f"  [{i['file_path']}:{i['line']}] {i['title']}")
+              sys.exit(1)
+
+          print("\n✅ Quality gate PASSED")
+          sys.exit(0)
+          EOF

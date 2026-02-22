@@ -1,0 +1,167 @@
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--space-4);
+  min-height: 500px;
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tree {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-grey-200);
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.treeList {
+  list-style: none;
+  padding: var(--space-2) 0;
+}
+
+.treeIndent {
+  padding-left: var(--space-4);
+}
+
+.treeNode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  font: var(--text-body);
+  color: var(--color-hof);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.treeNode:hover {
+  background: var(--color-grey-50);
+}
+
+.treeNode:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: -2px;
+}
+
+.treeNodeActive {
+  background: rgba(255, 90, 95, 0.08);
+  color: var(--color-rausch);
+  font-weight: 500;
+}
+
+.treeCode {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  background: var(--color-grey-100);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  margin-left: auto;
+}
+
+.detail {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-grey-200);
+  padding: var(--space-6);
+}
+
+.emptyDetail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-3);
+  color: var(--color-grey-400);
+  font: var(--text-body);
+  text-align: center;
+  min-height: 300px;
+}
+
+.detailContent {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.detailIcon {
+  color: var(--color-babu);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.detailType {
+  font: var(--text-heading-sm);
+  color: var(--color-hof);
+  margin-bottom: 2px;
+}
+
+.detailId {
+  font: var(--text-caption);
+  color: var(--color-grey-400);
+}
+
+.detailHeader > :last-child {
+  margin-left: auto;
+}
+
+.detailForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.detailFormActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-grey-200);
+}
+
+.mapPreview {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-grey-200);
+}
+
+.noGps {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  font-style: italic;
+}
+
+.deleteWarning {
+  font: var(--text-body);
+  color: var(--color-foggy);
+}
+
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}

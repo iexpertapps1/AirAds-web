@@ -1,0 +1,13 @@
+# =============================================================================
+# AirAd Backend — Production Requirements
+# NEVER use psycopg2-binary in production (R7).
+# psycopg2 is compiled from source in the builder stage of the Dockerfile.
+# =============================================================================
+
+-r base.txt
+
+# PostgreSQL adapter — compiled from source (NOT psycopg2-binary) (R7)
+psycopg2==2.9.10
+
+# WSGI server
+gunicorn==23.0.0

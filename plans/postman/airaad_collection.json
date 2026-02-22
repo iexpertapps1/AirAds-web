@@ -1,0 +1,1892 @@
+{
+  "collection": {
+    "info": {
+      "_postman_id": "3ac12d7a-70c1-4025-bc41-70f3f95fdc97",
+      "name": "AirAd API \u2014 Phase A",
+      "description": "AirAd backend API collection. Hyperlocal vendor discovery platform \u2014 Nearby + Now Generated from live OpenAPI schema at /api/v1/schema/.",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "event": [
+      {
+        "listen": "prerequest",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "if (!pm.environment.get(\"access_token\")) {",
+            "  pm.sendRequest({",
+            "    url: pm.environment.get(\"base_url\") + \"/api/v1/auth/login/\",",
+            "    method: \"POST\",",
+            "    header: { \"Content-Type\": \"application/json\" },",
+            "    body: { mode: \"raw\", raw: JSON.stringify({",
+            "      email: pm.environment.get(\"super_admin_email\"),",
+            "      password: pm.environment.get(\"super_admin_password\")",
+            "    })}",
+            "  }, (err, res) => {",
+            "    if (!err && res.code === 200) {",
+            "      const b = res.json();",
+            "      pm.environment.set(\"access_token\", b.data.tokens.access);",
+            "      pm.environment.set(\"refresh_token\", b.data.tokens.refresh);",
+            "      console.log(\"Auto-login OK. Role:\", b.data.user.role);",
+            "    }",
+            "  });",
+            "}"
+          ]
+        }
+      }
+    ],
+    "auth": {
+      "type": "bearer",
+      "bearer": [
+        {
+          "key": "token",
+          "value": "{{access_token}}",
+          "type": "string"
+        }
+      ]
+    },
+    "variable": [
+      {
+        "key": "base_url",
+        "value": "http://localhost:8000"
+      }
+    ],
+    "item": [
+      {
+        "name": "Auth",
+        "_postman_id": "7c8d5806-9f6c-4d1e-84e2-c2f75e076c46",
+        "item": [
+          {
+            "name": "Admin login \u2014 returns JWT tokens",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/login/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "login"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"success=true\", () => pm.expect(b.success).to.be.true);",
+                    "pm.test(\"access token present\", () => pm.expect(b.data.tokens.access).to.be.a(\"string\").and.not.empty);",
+                    "pm.test(\"refresh token present\", () => pm.expect(b.data.tokens.refresh).to.be.a(\"string\").and.not.empty);",
+                    "pm.test(\"role is valid\", () => {",
+                    "  const roles = [\"SUPER_ADMIN\",\"CITY_MANAGER\",\"DATA_ENTRY\",\"QA_REVIEWER\",\"FIELD_AGENT\",\"ANALYST\",\"SUPPORT\"];",
+                    "  pm.expect(roles).to.include(b.data.user.role);",
+                    "});",
+                    "pm.environment.set(\"access_token\", b.data.tokens.access);",
+                    "pm.environment.set(\"refresh_token\", b.data.tokens.refresh);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "b7307543-7073-4cd2-bdbf-2bb675717c8a"
+          },
+          {
+            "name": "Logout \u2014 blacklist refresh token",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/logout/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "logout"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "pm.test(\"success=true\", () => pm.expect(pm.response.json().success).to.be.true);",
+                    "pm.environment.unset(\"access_token\");",
+                    "pm.environment.unset(\"refresh_token\");"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "0d73878f-75d9-449c-956a-191e7ba17529"
+          },
+          {
+            "name": "Get current user profile",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/profile/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "profile"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"email present\", () => pm.expect(b.data.email).to.be.a(\"string\"));",
+                    "pm.test(\"role present\", () => pm.expect(b.data.role).to.be.a(\"string\"));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "40cfac69-9dbb-4d7f-b4cd-583a55b382bf"
+          },
+          {
+            "name": "Refresh JWT access token",
+            "request": {
+              "method": "POST",
+              "header": [],
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/refresh/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "refresh"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"new access token\", () => pm.expect(b.access).to.be.a(\"string\").and.not.empty);",
+                    "pm.environment.set(\"access_token\", b.access);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "60cdff93-054d-4fe3-bcc5-4977d3155f5d"
+          },
+          {
+            "name": "Create admin user (SUPER_ADMIN only)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/auth/users/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "auth",
+                  "users"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"UUID id\", () => pm.expect(b.data.id).to.match(/^[0-9a-f-]{36}$/i));",
+                    "pm.test(\"role matches request\", () => pm.expect(b.data.role).to.equal(JSON.parse(pm.request.body.raw).role));",
+                    "pm.environment.set(\"created_admin_user_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "0220e0a3-d2d3-4d46-889d-cb2a39c24766"
+          }
+        ]
+      },
+      {
+        "name": "Geo",
+        "_postman_id": "4adbae49-2464-4d31-be64-f9a13b9b00e9",
+        "item": [
+          {
+            "name": "List areas",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/areas/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "areas"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "f5b706c6-76bc-4e15-a9ae-2008fdcf9566"
+          },
+          {
+            "name": "Create area",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/areas/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "areas"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "pm.environment.set(\"area_id\", pm.response.json().data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "5e4d8680-19ee-4d3d-8712-286e278b5029"
+          },
+          {
+            "name": "List cities",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/cities/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "cities"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "459ea8d4-9583-46ad-9bfb-4c6423ed60fc"
+          },
+          {
+            "name": "Create city (SUPER_ADMIN, CITY_MANAGER)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/cities/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "cities"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"slug present\", () => pm.expect(b.data.slug).to.be.a(\"string\").and.not.empty);",
+                    "pm.environment.set(\"city_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "7082bd7c-620e-475b-b78d-dcc8c871fbaf"
+          },
+          {
+            "name": "Get city detail",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/cities/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "cities",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "c0ba0986-28b4-4179-9069-ce2f68da1c24"
+          },
+          {
+            "name": "Update city (SUPER_ADMIN, CITY_MANAGER)",
+            "request": {
+              "method": "PATCH",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/cities/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "cities",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "0ce2bb81-64a0-4870-b1b4-816d4facf71d"
+          },
+          {
+            "name": "List countries",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/countries/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "countries"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "pm.test(\"results array\", () => pm.expect(pm.response.json().data).to.be.an(\"array\"));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "dfed2eef-f53b-479c-8358-48c4bb3e5b97"
+          },
+          {
+            "name": "Create country (SUPER_ADMIN, CITY_MANAGER)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/countries/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "countries"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"code is 2 chars\", () => pm.expect(b.data.code).to.have.lengthOf(2));",
+                    "pm.environment.set(\"country_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "fdc3e62f-5d59-43c3-bc93-10ea696e1c88"
+          },
+          {
+            "name": "List landmarks",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/landmarks/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "landmarks"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "89842de3-ac80-4c2f-9b5a-9f07df82faf9"
+          },
+          {
+            "name": "Create landmark",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/geo/landmarks/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "geo",
+                  "landmarks"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "pm.environment.set(\"landmark_id\", pm.response.json().data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "afd9b7a1-8e9e-419e-a48c-aabef38404b4"
+          }
+        ]
+      },
+      {
+        "name": "Tags",
+        "_postman_id": "3d1d51d9-e6c2-4d35-b460-93e8bc346aa4",
+        "item": [
+          {
+            "name": "List tags",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tags/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tags"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "f494df9d-2ee9-4aa7-b852-14aa85a31aa0"
+          },
+          {
+            "name": "Create tag (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY) \u2014 SYSTEM type rejected",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tags/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tags"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"not SYSTEM type\", () => pm.expect(b.data.tag_type).to.not.equal(\"SYSTEM\"));",
+                    "pm.environment.set(\"tag_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "a9735a2e-a06c-49c0-a8a1-6d8efe3f0ec6"
+          },
+          {
+            "name": "Get tag detail",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tags/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tags",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "2fafd760-421e-4495-9d29-08617c94083c"
+          },
+          {
+            "name": "Update tag \u2014 SYSTEM tags and slug changes rejected",
+            "request": {
+              "method": "PATCH",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tags/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tags",
+                  "{{id}}"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "81b2a0b1-93a3-480f-aae9-549b960d7155"
+          },
+          {
+            "name": "Delete tag \u2014 SYSTEM tags cannot be deleted",
+            "request": {
+              "method": "DELETE",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/tags/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "tags",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 204\", () => pm.response.to.have.status(204));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "5bbf269a-91d2-4e97-b781-1078566577f0"
+          }
+        ]
+      },
+      {
+        "name": "Vendors",
+        "_postman_id": "eb94cf48-4f69-4b70-b68f-5f3848cc5d00",
+        "item": [
+          {
+            "name": "List vendors (paginated)",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/vendors/?",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "vendors"
+                ],
+                "query": [
+                  {
+                    "key": "area_id",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by area UUID"
+                  },
+                  {
+                    "key": "city_id",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by city UUID"
+                  },
+                  {
+                    "key": "data_source",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by data source"
+                  },
+                  {
+                    "key": "qc_status",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by QC status"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"paginated\", () => pm.expect(b.count).to.be.a(\"number\"));",
+                    "if (b.data && b.data.length > 0) {",
+                    "  pm.test(\"no deleted vendors\", () => b.data.forEach(v => pm.expect(v.is_deleted).to.be.false));",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "2d65d7bf-e479-40b1-ba4a-6143ea96be09"
+          },
+          {
+            "name": "Create vendor (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/vendors/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "vendors"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"qc_status=PENDING\", () => pm.expect(b.data.qc_status).to.equal(\"PENDING\"));",
+                    "pm.test(\"gps_point is GeoJSON Point\", () => {",
+                    "  pm.expect(b.data.gps_point.type).to.equal(\"Point\");",
+                    "  pm.expect(b.data.gps_point.coordinates).to.have.lengthOf(2);",
+                    "});",
+                    "pm.test(\"is_deleted=false\", () => pm.expect(b.data.is_deleted).to.be.false);",
+                    "pm.environment.set(\"vendor_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "08c1c789-353f-4bd4-bbf7-b9f5a7648a48"
+          },
+          {
+            "name": "Get vendor detail",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/vendors/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "vendors",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "pm.test(\"is_deleted=false\", () => pm.expect(pm.response.json().data.is_deleted).to.be.false);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "2f218009-3954-45e8-a825-5112558c2876"
+          },
+          {
+            "name": "Update vendor (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY)",
+            "request": {
+              "method": "PATCH",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/vendors/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "vendors",
+                  "{{id}}"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "9df16a2a-5dbb-4821-9fda-75cb26b34946"
+          },
+          {
+            "name": "Soft-delete vendor (SUPER_ADMIN, CITY_MANAGER)",
+            "request": {
+              "method": "DELETE",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/vendors/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "vendors",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 204\", () => pm.response.to.have.status(204));",
+                    "pm.sendRequest({",
+                    "  url: pm.environment.get(\"base_url\") + \"/api/v1/vendors/\" + pm.environment.get(\"vendor_id\") + \"/\",",
+                    "  method: \"GET\",",
+                    "  header: { \"Authorization\": \"Bearer \" + pm.environment.get(\"access_token\") }",
+                    "}, (err, res) => {",
+                    "  pm.test(\"Soft-deleted vendor returns 404\", () => pm.expect(res.code).to.equal(404));",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "0e80350f-f0af-4bd1-8046-d70da7e11f86"
+          },
+          {
+            "name": "Update vendor QC status (SUPER_ADMIN, CITY_MANAGER, QA_REVIEWER)",
+            "request": {
+              "method": "PATCH",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/vendors/{{id}}/qc-status/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "vendors",
+                  "{{id}}",
+                  "qc-status"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"qc_status updated\", () => pm.expect(b.data.qc_status).to.equal(JSON.parse(pm.request.body.raw).qc_status));",
+                    "pm.test(\"qc_reviewed_by set\", () => pm.expect(b.data.qc_reviewed_by).to.not.be.null);",
+                    "pm.test(\"qc_reviewed_at set\", () => pm.expect(b.data.qc_reviewed_at).to.not.be.null);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "a47d1afd-4873-45d1-ab29-5ca737f12a29"
+          }
+        ]
+      },
+      {
+        "name": "Imports",
+        "_postman_id": "a243427a-aeb7-499f-91af-be4fa922c3a5",
+        "item": [
+          {
+            "name": "List import batches",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/imports/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "imports"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "dfa1de14-7651-403a-b79a-e5f44a95bdda"
+          },
+          {
+            "name": "Upload CSV for import (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/imports/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "imports"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"status=QUEUED\", () => pm.expect(b.data.status).to.equal(\"QUEUED\"));",
+                    "pm.test(\"file_key is S3 key not URL\", () => {",
+                    "  pm.expect(b.data.file_key).to.not.include(\"https://\");",
+                    "  pm.expect(b.data.file_key).to.not.include(\"http://\");",
+                    "});",
+                    "pm.environment.set(\"import_batch_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "dd873106-204d-4dfe-a579-43342cf8cd58"
+          },
+          {
+            "name": "Get import batch detail",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/imports/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "imports",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"valid status\", () => pm.expect([\"QUEUED\",\"PROCESSING\",\"DONE\",\"FAILED\"]).to.include(b.data.status));",
+                    "if (b.data.status === \"DONE\") {",
+                    "  pm.test(\"error_log \u22641000 entries\", () => pm.expect(b.data.error_log.length).to.be.at.most(1000));",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "73dff4e7-2268-40d0-9b65-b9b4966542da"
+          }
+        ]
+      },
+      {
+        "name": "Field Ops",
+        "_postman_id": "afb74deb-87c9-4a60-9f02-290a86708101",
+        "item": [
+          {
+            "name": "List field visits",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/field-ops/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "field-ops"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "8fdd8218-4d31-4eb1-ac5e-3ce5d1a63796"
+          },
+          {
+            "name": "Create field visit (SUPER_ADMIN, CITY_MANAGER, FIELD_AGENT)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/field-ops/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "field-ops"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"GPS point is GeoJSON\", () => pm.expect(b.data.gps_confirmed_point.type).to.equal(\"Point\"));",
+                    "pm.environment.set(\"field_visit_id\", b.data.id);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "88c02cc7-3855-47e7-97d7-2267a9da2c6c"
+          },
+          {
+            "name": "Get field visit detail",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/field-ops/{{id}}/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "field-ops",
+                  "{{id}}"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "5b87f9c0-5bb6-4ba2-aa69-ffa0b93e2d9d"
+          },
+          {
+            "name": "List photos for a field visit",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/field-ops/{{field_visit_id}}/photos/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "field-ops",
+                  "{{field_visit_id}}",
+                  "photos"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "e539539e-5502-4aa3-acc2-e299c5b64537"
+          },
+          {
+            "name": "Upload field photo (SUPER_ADMIN, FIELD_AGENT)",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/field-ops/{{field_visit_id}}/photos/upload/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "field-ops",
+                  "{{field_visit_id}}",
+                  "photos",
+                  "upload"
+                ],
+                "query": []
+              },
+              "body": {
+                "mode": "formdata",
+                "formdata": [
+                  {
+                    "key": "file",
+                    "type": "file",
+                    "src": "/path/to/vendors.csv"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"presigned URL returned\", () => pm.expect(b.data.presigned_url).to.include(\"X-Amz-Signature\"));",
+                    "pm.test(\"s3_key NOT exposed\", () => pm.expect(b.data.s3_key).to.be.undefined);"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "56542876-fcec-4a98-b45a-298b438cc278"
+          }
+        ]
+      },
+      {
+        "name": "QA",
+        "_postman_id": "c9e36801-5660-4408-8d3c-b0d3f4696980",
+        "item": [
+          {
+            "name": "List vendors flagged NEEDS_REVIEW (SUPER_ADMIN, CITY_MANAGER, QA_REVIEWER)",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/qa/dashboard/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "qa",
+                  "dashboard"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "if (b.data && b.data.vendors && b.data.vendors.length > 0) {",
+                    "  pm.test(\"all vendors NEEDS_REVIEW\", () => b.data.vendors.forEach(v => pm.expect(v.qc_status).to.equal(\"NEEDS_REVIEW\")));",
+                    "}"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "bebf2930-4d36-4898-a142-760efa62cac6"
+          }
+        ]
+      },
+      {
+        "name": "Analytics",
+        "_postman_id": "e6f0e725-fc93-4b58-8c6e-8247629b282a",
+        "item": [
+          {
+            "name": "Platform KPI summary (SUPER_ADMIN, ANALYST)",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/analytics/kpis/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "analytics",
+                  "kpis"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"total_vendors present\", () => pm.expect(b.data.total_vendors).to.be.a(\"number\"));"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "2660cc8c-3f29-405d-b5f1-937dc455500c"
+          }
+        ]
+      },
+      {
+        "name": "Audit",
+        "_postman_id": "7bb6d239-0e1e-4e48-ab4a-f35badcdfb8e",
+        "item": [
+          {
+            "name": "List audit log entries (SUPER_ADMIN, ANALYST)",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/audit/?",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "audit"
+                ],
+                "query": [
+                  {
+                    "key": "action",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by action code"
+                  },
+                  {
+                    "key": "actor_label",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by actor email"
+                  },
+                  {
+                    "key": "page",
+                    "value": "",
+                    "disabled": true,
+                    "description": "A page number within the paginated result set."
+                  },
+                  {
+                    "key": "page_size",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Number of results to return per page."
+                  },
+                  {
+                    "key": "target_type",
+                    "value": "",
+                    "disabled": true,
+                    "description": "Filter by target model name"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"paginated count\", () => pm.expect(b.count).to.be.a(\"number\"));",
+                    "pm.sendRequest({",
+                    "  url: pm.environment.get(\"base_url\") + \"/api/v1/audit/\",",
+                    "  method: \"POST\",",
+                    "  header: { \"Authorization\": \"Bearer \" + pm.environment.get(\"access_token\"), \"Content-Type\": \"application/json\" },",
+                    "  body: { mode: \"raw\", raw: \"{}\" }",
+                    "}, (err, res) => {",
+                    "  pm.test(\"POST /audit/ returns 405 (immutable)\", () => pm.expect(res.code).to.equal(405));",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "1f376de5-58c2-4814-9b9e-485c19be9faa"
+          }
+        ]
+      },
+      {
+        "name": "health",
+        "_postman_id": "ccf4d165-aa60-43a7-b9c3-a5d5043d56b8",
+        "item": [
+          {
+            "name": "health_retrieve",
+            "request": {
+              "method": "GET",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Authorization",
+                  "value": "Bearer {{access_token}}"
+                }
+              ],
+              "url": {
+                "raw": "{{base_url}}/api/v1/health/",
+                "host": [
+                  "{{base_url}}"
+                ],
+                "path": [
+                  "api",
+                  "v1",
+                  "health"
+                ],
+                "query": []
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test(\"200 or 503\", () => pm.expect([200, 503]).to.include(pm.response.code));",
+                    "const b = pm.response.json();",
+                    "pm.test(\"status field present\", () => pm.expect(b.status).to.be.oneOf([\"healthy\", \"degraded\"]));",
+                    "pm.sendRequest({ url: pm.environment.get(\"base_url\") + \"/api/v1/health/\", method: \"GET\" }, (err, res) => {",
+                    "  pm.test(\"health accessible without token\", () => pm.expect([200, 503]).to.include(res.code));",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "_postman_id": "8f395632-e919-4bab-beb1-0abf529cfef9"
+          }
+        ]
+      }
+    ]
+  }
+}

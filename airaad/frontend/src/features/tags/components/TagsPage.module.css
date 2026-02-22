@@ -1,0 +1,72 @@
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tagName {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.slug {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  background: var(--color-grey-100);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-hof);
+}
+
+.systemLock {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-grey-400);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.systemSection {
+  margin-top: var(--space-8);
+}
+
+.systemHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-heading-sm);
+  color: var(--color-foggy);
+  margin-bottom: var(--space-4);
+}
+
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.slugRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.slugLabel {
+  font: var(--text-label);
+  color: var(--color-foggy);
+}
+
+.slugHint {
+  font: var(--text-caption);
+  color: var(--color-grey-400);
+}
+
+.deleteWarning {
+  font: var(--text-body);
+  color: var(--color-hof);
+}

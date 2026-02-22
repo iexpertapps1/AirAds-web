@@ -1,0 +1,59 @@
+.nameLink {
+  font: var(--text-body-strong);
+  color: var(--color-rausch);
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.nameLink:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.location {
+  font: var(--text-body);
+  color: var(--color-foggy);
+}
+
+.phone {
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  color: var(--color-hof);
+  letter-spacing: 0.05em;
+}
+
+.date {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.filterSelect {
+  min-width: 160px;
+}
+
+.deleteWarning {
+  font: var(--text-body);
+  color: var(--color-hof);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}

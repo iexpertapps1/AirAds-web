@@ -1,0 +1,155 @@
+version: "3.9"
+
+# =============================================================================
+# AirAd — Production Docker Compose
+# =============================================================================
+# No source code volume mounts in production.
+# Backend is NOT directly port-exposed — nginx reverse proxy only.
+# celery-beat deploy.replicas: 1 — exactly one instance, always (R10).
+# =============================================================================
+
+x-backend-env: &backend-env
+  env_file:
+    - .env
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.production
+
+x-backend-depends: &backend-depends
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 + PostGIS
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-airaad_db}
+      POSTGRES_USER: ${POSTGRES_USER:-airaad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-airaad} -d ${POSTGRES_DB:-airaad_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Django Backend (Gunicorn)
+  # Backend is NOT port-exposed — nginx proxies all traffic.
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    <<: [*backend-env, *backend-depends]
+    expose:
+      - "8000"
+    networks:
+      - internal
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120 --access-logfile - --error-logfile -"
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    <<: [*backend-env, *backend-depends]
+    command: celery -A celery_app worker --loglevel=info --concurrency=4
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat — EXACTLY ONE REPLICA (R10)
+  # deploy.replicas: 1 prevents duplicate scheduled tasks.
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
+    <<: [*backend-env, *backend-depends]
+    command: celery -A celery_app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    deploy:
+      replicas: 1
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Frontend (React — served by nginx:alpine)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - internal
+
+  # ---------------------------------------------------------------------------
+  # Nginx — Reverse Proxy
+  # Only service with public port exposure.
+  # /api/ → backend:8000, / → frontend:80
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - internal
+
+volumes:
+  postgres_data:
+  redis_data:
+  nginx_logs:
+
+networks:
+  internal:
+    driver: bridge

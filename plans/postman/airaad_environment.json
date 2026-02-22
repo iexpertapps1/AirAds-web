@@ -1,0 +1,167 @@
+{
+  "id": "airaad-env-local",
+  "name": "AirAd — Local Dev",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost",
+      "type": "default",
+      "enabled": true,
+      "description": "Nginx reverse proxy (port 80). Change to http://localhost:8000 for direct backend access."
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "JWT access token — auto-populated by the Login request's test script."
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "JWT refresh token — auto-populated by the Login request's test script."
+    },
+    {
+      "key": "super_admin_email",
+      "value": "admin@airaad.com",
+      "type": "default",
+      "enabled": true,
+      "description": "SUPER_ADMIN account created by seed_data management command."
+    },
+    {
+      "key": "super_admin_password",
+      "value": "AirAd@SuperAdmin2024!",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "city_manager_email",
+      "value": "citymanager@airaad.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "city_manager_password",
+      "value": "AirAd@CityMgr2024!",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "data_entry_email",
+      "value": "dataentry@airaad.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "data_entry_password",
+      "value": "AirAd@DataEntry2024!",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "qa_reviewer_email",
+      "value": "qa@airaad.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "qa_reviewer_password",
+      "value": "AirAd@QAReview2024!",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "field_agent_email",
+      "value": "fieldagent@airaad.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "field_agent_password",
+      "value": "AirAd@FieldAgent2024!",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "analyst_email",
+      "value": "analyst@airaad.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "analyst_password",
+      "value": "AirAd@Analyst2024!",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "vendor_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a vendor — auto-populated by Create Vendor test script."
+    },
+    {
+      "key": "city_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a city — auto-populated by Create City test script."
+    },
+    {
+      "key": "area_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of an area — auto-populated by Create Area test script."
+    },
+    {
+      "key": "country_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a country — auto-populated by Create Country test script."
+    },
+    {
+      "key": "landmark_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a landmark — auto-populated by Create Landmark test script."
+    },
+    {
+      "key": "tag_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a tag — auto-populated by Create Tag test script."
+    },
+    {
+      "key": "import_batch_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of an import batch — auto-populated by Upload CSV test script."
+    },
+    {
+      "key": "field_visit_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a field visit — auto-populated by Create Field Visit test script."
+    },
+    {
+      "key": "created_admin_user_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "UUID of a newly created admin user — auto-populated by Create Admin User test script."
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "info": {
+    "description": "AirAd Local Dev environment. Import this alongside the OpenAPI-generated collection from GET /api/v1/schema/. See airaad_postman_guide.md for full setup instructions."
+  }
+}

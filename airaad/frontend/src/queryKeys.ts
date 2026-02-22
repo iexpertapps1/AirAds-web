@@ -1,0 +1,98 @@
+// All query key factories live here. Zero string literals elsewhere.
+
+interface CityFilters {
+  country?: string | undefined;
+  search?: string | undefined;
+}
+
+interface AreaFilters {
+  city?: string | undefined;
+  search?: string | undefined;
+}
+
+interface LandmarkFilters {
+  area?: string | undefined;
+  search?: string | undefined;
+}
+
+interface TagFilters {
+  tag_type?: string | undefined;
+  is_active?: boolean | undefined;
+  search?: string | undefined;
+}
+
+interface VendorFilters {
+  area_id?: string | undefined;
+  city_id?: string | undefined;
+  data_source?: string | undefined;
+  qc_status?: string | undefined;
+  search?: string | undefined;
+  page?: number | undefined;
+  page_size?: number | undefined;
+  ordering?: string | undefined;
+}
+
+interface FieldOpsFilters {
+  vendor_id?: string | undefined;
+  agent?: string | undefined;
+  page?: number | undefined;
+  page_size?: number | undefined;
+}
+
+interface AuditFilters {
+  action?: string | undefined;
+  actor_label?: string | undefined;
+  target_type?: string | undefined;
+  page?: number | undefined;
+  page_size?: number | undefined;
+}
+
+export const queryKeys = {
+  auth: {
+    profile: () => ['auth', 'profile'] as const,
+    users: () => ['auth', 'users'] as const,
+  },
+  analytics: {
+    kpis: () => ['analytics', 'kpis'] as const,
+  },
+  health: {
+    status: () => ['health', 'status'] as const,
+  },
+  geo: {
+    countries: () => ['geo', 'countries'] as const,
+    cities: (filters?: CityFilters) => ['geo', 'cities', filters] as const,
+    city: (id: string) => ['geo', 'city', id] as const,
+    areas: (filters?: AreaFilters) => ['geo', 'areas', filters] as const,
+    landmarks: (filters?: LandmarkFilters) => ['geo', 'landmarks', filters] as const,
+  },
+  tags: {
+    list: (filters?: TagFilters) => ['tags', 'list', filters] as const,
+    detail: (id: string) => ['tags', 'detail', id] as const,
+  },
+  vendors: {
+    list: (filters?: VendorFilters) => ['vendors', 'list', filters] as const,
+    detail: (id: string) => ['vendors', 'detail', id] as const,
+    photos: (id: string) => ['vendors', 'photos', id] as const,
+    visits: (id: string) => ['vendors', 'visits', id] as const,
+    tags: (id: string) => ['vendors', 'tags', id] as const,
+    analytics: (id: string) => ['vendors', 'analytics', id] as const,
+  },
+  imports: {
+    list: () => ['imports', 'list'] as const,
+    detail: (id: string) => ['imports', 'detail', id] as const,
+  },
+  fieldOps: {
+    list: (filters?: FieldOpsFilters) => ['fieldOps', 'list', filters] as const,
+    detail: (id: string) => ['fieldOps', 'detail', id] as const,
+    photos: (visitId: string) => ['fieldOps', 'photos', visitId] as const,
+  },
+  qa: {
+    dashboard: () => ['qa', 'dashboard'] as const,
+  },
+  audit: {
+    list: (filters?: AuditFilters) => ['audit', 'list', filters] as const,
+  },
+  system: {
+    users: () => ['system', 'users'] as const,
+  },
+};

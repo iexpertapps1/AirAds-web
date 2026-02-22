@@ -1,0 +1,87 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-label);
+  color: var(--color-hof);
+}
+
+.required {
+  color: var(--color-error-text);
+}
+
+.coordRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.coordField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.coordLabel {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+}
+
+.coordInput {
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-grey-300);
+  border-radius: var(--radius-md);
+  font: var(--text-body);
+  color: var(--color-hof);
+  background: var(--color-white);
+  transition: border-color var(--duration-fast) var(--ease-standard);
+  width: 100%;
+}
+
+.coordInput:hover:not(:disabled) {
+  border-color: var(--color-grey-700);
+}
+
+.coordInput:focus {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+  border-color: var(--color-grey-900);
+}
+
+.coordInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-grey-100);
+}
+
+.coordInput.hasError {
+  border-color: var(--color-error-text);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-caption);
+  color: var(--color-error-text);
+}
+
+.mapWrapper {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-grey-200);
+}

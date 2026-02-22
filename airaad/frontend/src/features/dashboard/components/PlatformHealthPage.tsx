@@ -1,0 +1,361 @@
+import { useQuery } from '@tanstack/react-query';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from 'recharts';
+import {
+  Store, MapPin, Tag, CheckCircle, Clock,
+  Upload, Activity, Search, Bell,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { apiClient } from '@/lib/axios';
+import { queryKeys } from '@/queryKeys';
+import { AdminLayout } from '@/shared/components/dls/AdminLayout';
+import { PageHeader } from '@/shared/components/dls/PageHeader';
+import { Badge } from '@/shared/components/dls/Badge';
+import { SkeletonTable } from '@/shared/components/dls/SkeletonTable';
+import { RoleGate } from '@/shared/components/RoleGate';
+import styles from './PlatformHealthPage.module.css';
+
+interface SystemAlert {
+  id: string;
+  severity: 'HIGH' | 'MED' | 'LOW';
+  message: string;
+  action_url?: string;
+  action_label?: string;
+}
+
+interface RecentActivity {
+  id: string;
+  action: string;
+  actor_label: string;
+  target_type: string;
+  timestamp: string;
+}
+
+interface KPIData {
+  total_vendors: number;
+  vendors_pending_qa: number;
+  vendors_approved_today: number;
+  total_areas: number;
+  total_tags: number;
+  imports_processing: number;
+  daily_vendor_counts: Array<{ date: string; count: number }>;
+  qc_status_breakdown: Array<{ status: string; count: number }>;
+  import_activity: Array<{ date: string; count: number }>;
+  top_search_terms: Array<{ term: string; count: number }>;
+  system_alerts: SystemAlert[];
+  recent_activity: RecentActivity[];
+}
+
+interface KPIResponse {
+  success: boolean;
+  data: KPIData;
+}
+
+interface HealthStatus {
+  status: 'ok' | 'degraded' | 'down';
+  db: string;
+  cache: string;
+  version?: string | undefined;
+}
+
+interface HealthResponse {
+  status: string;
+  db: string;
+  cache: string;
+  version?: string | undefined;
+}
+
+interface MetricCardProps {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  variant?: 'default' | 'warning' | 'success';
+}
+
+const QC_COLORS: Record<string, string> = {
+  APPROVED: 'var(--color-babu)',
+  PENDING: 'var(--color-grey-400)',
+  NEEDS_REVIEW: 'var(--color-arches)',
+  REJECTED: 'var(--color-error)',
+  FLAGGED: 'var(--color-warning)',
+};
+
+const ALERT_VARIANT: Record<string, 'error' | 'warning' | 'neutral'> = {
+  HIGH: 'error',
+  MED: 'warning',
+  LOW: 'neutral',
+};
+
+function MetricCard({ label, value, icon, variant = 'default' }: MetricCardProps) {
+  return (
+    <div className={[styles.metricCard, styles[`metricCard--${variant}`]].join(' ')}>
+      <span className={styles.metricIcon} aria-hidden="true">{icon}</span>
+      <div>
+        <p className={styles.metricValue}>{typeof value === 'number' ? value.toLocaleString() : value}</p>
+        <p className={styles.metricLabel}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+const HEALTH_VARIANT: Record<string, 'success' | 'warning' | 'error'> = {
+  ok: 'success',
+  degraded: 'warning',
+  down: 'error',
+};
+
+export default function PlatformHealthPage() {
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.analytics.kpis(),
+    queryFn: () =>
+      apiClient.get<KPIResponse>('/api/v1/analytics/kpis/').then((r) => r.data.data),
+    refetchInterval: 60_000,
+  });
+
+  const { data: health } = useQuery<HealthStatus>({
+    queryKey: queryKeys.health.status(),
+    queryFn: (): Promise<HealthStatus> =>
+      apiClient.get<HealthResponse>('/api/v1/health/').then((r) => {
+        const rawStatus = r.data.status;
+        const status: 'ok' | 'degraded' | 'down' =
+          rawStatus === 'ok' ? 'ok' : rawStatus === 'degraded' ? 'degraded' : 'down';
+        const result: HealthStatus = { status, db: r.data.db, cache: r.data.cache };
+        if (r.data.version !== undefined) {
+          result.version = r.data.version;
+        }
+        return result;
+      }),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  return (
+    <AdminLayout title="Platform Health">
+      <PageHeader
+        heading="Platform Health"
+        subheading="Real-time overview of data collection progress"
+        actions={
+          health ? (
+            <Badge
+              variant={HEALTH_VARIANT[health.status] ?? 'neutral'}
+              label={`System: ${health.status.toUpperCase()}`}
+            />
+          ) : undefined
+        }
+      />
+
+      {isLoading ? (
+        <SkeletonTable rows={3} columns={4} showHeader={false} />
+      ) : (
+        <>
+          <RoleGate allowedRoles={['SUPER_ADMIN', 'ANALYST']}>
+          {/* ── KPI Cards ── */}
+          <div className={styles.metricsGrid} role="list" aria-label="Platform metrics">
+            <div role="listitem">
+              <MetricCard
+                label="Total Vendors"
+                value={data?.total_vendors ?? 0}
+                icon={<Store size={20} strokeWidth={1.5} />}
+              />
+            </div>
+            <div role="listitem">
+              <MetricCard
+                label="Pending QA"
+                value={data?.vendors_pending_qa ?? 0}
+                icon={<Clock size={20} strokeWidth={1.5} />}
+                variant={data && data.vendors_pending_qa > 50 ? 'warning' : 'default'}
+              />
+            </div>
+            <div role="listitem">
+              <MetricCard
+                label="Approved Today"
+                value={data?.vendors_approved_today ?? 0}
+                icon={<CheckCircle size={20} strokeWidth={1.5} />}
+                variant="success"
+              />
+            </div>
+            <div role="listitem">
+              <MetricCard
+                label="Total Areas"
+                value={data?.total_areas ?? 0}
+                icon={<MapPin size={20} strokeWidth={1.5} />}
+              />
+            </div>
+            <div role="listitem">
+              <MetricCard
+                label="Total Tags"
+                value={data?.total_tags ?? 0}
+                icon={<Tag size={20} strokeWidth={1.5} />}
+              />
+            </div>
+            <div role="listitem">
+              <MetricCard
+                label="Imports Processing"
+                value={data?.imports_processing ?? 0}
+                icon={<Upload size={20} strokeWidth={1.5} />}
+                variant={data && data.imports_processing > 0 ? 'warning' : 'default'}
+              />
+            </div>
+          </div>
+
+          {/* ── Charts row ── */}
+          <div className={styles.chartsRow}>
+            {/* Vendors Added bar chart */}
+            {data?.daily_vendor_counts && data.daily_vendor_counts.length > 0 && (
+              <section className={styles.chartSection} aria-label="Daily vendor additions">
+                <h2 className={styles.sectionHeading}>Vendors Added — Last 14 Days</h2>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={data.daily_vendor_counts} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grey-200)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-foggy)' }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--color-foggy)' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: 'var(--color-white)', border: '1px solid var(--color-grey-200)', borderRadius: '8px', fontSize: 12 }} />
+                    <Bar dataKey="count" fill="var(--color-rausch)" radius={[4, 4, 0, 0]} name="Vendors" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </section>
+            )}
+
+            {/* QC Status donut */}
+            {data?.qc_status_breakdown && data.qc_status_breakdown.length > 0 && (
+              <section className={styles.chartSection} aria-label="QC status breakdown">
+                <h2 className={styles.sectionHeading}>QC Status Breakdown</h2>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={data.qc_status_breakdown}
+                      dataKey="count"
+                      nameKey="status"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={2}
+                    >
+                      {data.qc_status_breakdown.map((entry) => (
+                        <Cell
+                          key={entry.status}
+                          fill={QC_COLORS[entry.status] ?? 'var(--color-grey-300)'}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: 'var(--color-white)', border: '1px solid var(--color-grey-200)', borderRadius: '8px', fontSize: 12 }}
+                      formatter={(value: number, name: string) => [value.toLocaleString(), name]}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </section>
+            )}
+          </div>
+
+          {/* ── Import Activity chart ── */}
+          {data?.import_activity && data.import_activity.length > 0 && (
+            <section className={styles.chartSection} aria-label="Import activity">
+              <h2 className={styles.sectionHeading}>
+                <Upload size={16} strokeWidth={1.5} aria-hidden="true" />
+                Import Activity — Last 7 Days
+              </h2>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={data.import_activity} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-grey-200)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--color-foggy)' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--color-foggy)' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: 'var(--color-white)', border: '1px solid var(--color-grey-200)', borderRadius: '8px', fontSize: 12 }} />
+                  <Bar dataKey="count" fill="var(--color-babu)" radius={[3, 3, 0, 0]} name="Imports" />
+                </BarChart>
+              </ResponsiveContainer>
+            </section>
+          )}
+          </RoleGate>
+          <RoleGate allowedRoles={['SUPER_ADMIN', 'ANALYST']}>
+          {/* ── Bottom row: Search Terms + Alerts + Activity ── */}
+          <div className={styles.bottomRow}>
+            {/* Top Search Terms */}
+            {data?.top_search_terms && data.top_search_terms.length > 0 && (
+              <section className={styles.listSection} aria-label="Top search terms">
+                <h2 className={styles.sectionHeading}>
+                  <Search size={16} strokeWidth={1.5} aria-hidden="true" />
+                  Top Search Terms
+                </h2>
+                <ol className={styles.searchList}>
+                  {data.top_search_terms.slice(0, 10).map((t, i) => (
+                    <li key={t.term} className={styles.searchItem}>
+                      <span className={styles.searchRank}>{i + 1}</span>
+                      <span className={styles.searchTerm}>{t.term}</span>
+                      <span className={styles.searchCount}>{t.count.toLocaleString()}</span>
+                      <div
+                        className={styles.searchBar}
+                        style={{ ['--search-bar-width' as string]: `${(t.count / (data.top_search_terms[0]?.count || 1)) * 100}%` } as React.CSSProperties}
+                        aria-hidden="true"
+                      />
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {/* System Alerts */}
+            {data?.system_alerts && data.system_alerts.length > 0 && (
+              <section className={styles.listSection} aria-label="System alerts">
+                <h2 className={styles.sectionHeading}>
+                  <Bell size={16} strokeWidth={1.5} aria-hidden="true" />
+                  System Alerts
+                </h2>
+                <ul className={styles.alertList}>
+                  {data.system_alerts.map((alert) => (
+                    <li key={alert.id} className={[styles.alertItem, styles[`alertItem--${alert.severity.toLowerCase()}`]].join(' ')}>
+                      <div className={styles.alertTop}>
+                        <Badge
+                          variant={ALERT_VARIANT[alert.severity] ?? 'neutral'}
+                          label={alert.severity}
+                          size="sm"
+                        />
+                        <p className={styles.alertMessage}>{alert.message}</p>
+                      </div>
+                      {alert.action_url && alert.action_label && (
+                        <Link to={alert.action_url} className={styles.alertAction}>
+                          {alert.action_label} →
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Recent Activity */}
+            {data?.recent_activity && data.recent_activity.length > 0 && (
+              <section className={styles.listSection} aria-label="Recent activity">
+                <h2 className={styles.sectionHeading}>
+                  <Activity size={16} strokeWidth={1.5} aria-hidden="true" />
+                  Recent Activity
+                </h2>
+                <ul className={styles.activityList}>
+                  {data.recent_activity.slice(0, 10).map((entry) => (
+                    <li key={entry.id} className={styles.activityItem}>
+                      <div className={styles.activityDot} aria-hidden="true" />
+                      <div className={styles.activityContent}>
+                        <span className={styles.activityAction}>{entry.action}</span>
+                        <span className={styles.activityMeta}>
+                          {entry.actor_label} · {entry.target_type} · {new Date(entry.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <Link to="/system/audit" className={styles.viewAllLink}>
+                  View full audit log →
+                </Link>
+              </section>
+            )}
+          </div>
+          </RoleGate>
+        </>
+      )}
+    </AdminLayout>
+  );
+}

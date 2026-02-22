@@ -1,0 +1,40 @@
+# TruffleHog v3 configuration for AirAd
+# Docs: https://github.com/trufflesecurity/trufflehog
+
+# Only report verified secrets (reduces noise)
+only_verified: false
+
+# Detectors to enable (all by default; listed here for explicitness)
+# Covers AWS, GitHub, Anthropic, Stripe, Slack, SendGrid, Twilio, etc.
+detectors:
+  - name: AWS
+  - name: GitHub
+  - name: GitHubOauth2
+  - name: Anthropic
+  - name: OpenAI
+  - name: Stripe
+  - name: Slack
+  - name: SendGrid
+  - name: Twilio
+  - name: Postgres
+  - name: PrivateKey
+  - name: URI          # catches DB connection strings with embedded passwords
+
+# Paths to exclude from scanning
+exclude_paths:
+  - .venv/
+  - node_modules/
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+  - "airaad/backend/htmlcov/**"
+  - "airaad/backend/.pytest_cache/**"
+  - "airaad/frontend/.vite/**"
+  - "airaad/frontend/dist/**"
+  - "**/.git/**"
+  # Test fixtures may contain fake credentials — exclude from verified-only runs
+  - "airaad/backend/apps/**/tests/**"
+  - "airaad/backend/apps/**/fixtures/**"
+
+# Entropy threshold for generic high-entropy string detection
+# (lower = more noise; 3.5 is a reasonable balance)
+entropy_threshold: 3.5

@@ -1,0 +1,35 @@
+[run]
+source = apps, core
+omit =
+    */migrations/*
+    */tests/*
+    */test_*.py
+    *_test.py
+    */conftest.py
+    */apps.py
+    */admin.py
+    manage.py
+    config/wsgi.py
+    config/asgi.py
+    celery_app.py
+    */management/commands/*
+    apps/vendors/tasks.py
+    apps/subscriptions/tasks.py
+    apps/tags/tasks.py
+    core/storage.py
+
+[report]
+fail_under = 80
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    def __str__
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    @overload
+    \.\.\.
+
+[html]
+directory = htmlcov

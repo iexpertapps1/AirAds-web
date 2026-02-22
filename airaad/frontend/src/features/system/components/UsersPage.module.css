@@ -1,0 +1,87 @@
+.name {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.email {
+  font: var(--text-body);
+  color: var(--color-foggy);
+}
+
+.date {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+}
+
+.failedAttempts {
+  color: var(--color-warning-text);
+  font-weight: 600;
+}
+
+.active {
+  color: var(--color-success-text);
+  font: var(--text-body-strong);
+}
+
+.inactive {
+  color: var(--color-foggy);
+}
+
+.locked {
+  color: var(--color-error-text);
+  font: var(--text-body-strong);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.drawerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.readOnlyField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.readOnlyLabel {
+  font: var(--text-label);
+  color: var(--color-foggy);
+}
+
+.readOnlyValue {
+  font: var(--text-body);
+  color: var(--color-hof);
+  background: var(--color-grey-100);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-grey-200);
+}
+
+.passwordBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-grey-50);
+  border: 1px solid var(--color-grey-200);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.tempPassword {
+  flex: 1;
+  font-family: var(--font-family-mono);
+  font-size: 14px;
+  color: var(--color-hof);
+  word-break: break-all;
+}
+
+.unlockNote {
+  font: var(--text-body);
+  color: var(--color-hof);
+}

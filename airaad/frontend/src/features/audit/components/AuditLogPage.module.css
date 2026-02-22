@@ -1,0 +1,83 @@
+.filterRow {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.filterRow > * {
+  min-width: 180px;
+  flex: 1;
+}
+
+.tableWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.expandBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-foggy);
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.expandBtn:hover {
+  background: var(--color-grey-100);
+  color: var(--color-hof);
+}
+
+.expandBtn:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+}
+
+.timestamp {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  white-space: nowrap;
+}
+
+.action {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  background: var(--color-grey-100);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-hof);
+  white-space: nowrap;
+}
+
+.actor {
+  font: var(--text-body-sm);
+  color: var(--color-hof);
+}
+
+.targetId,
+.requestId {
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  color: var(--color-foggy);
+}
+
+.ip {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+}
+
+.diffPanel {
+  border: 1px solid var(--color-grey-200);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: auto;
+  max-height: 400px;
+  font-size: 12px;
+}

@@ -1,0 +1,432 @@
+.qcActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tabs {
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-grey-200);
+}
+
+.tabList {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5);
+  font: var(--text-body-strong);
+  color: var(--color-foggy);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--color-hof);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: -2px;
+}
+
+.tabActive {
+  color: var(--color-rausch);
+  border-bottom-color: var(--color-rausch);
+}
+
+.tabPanel {
+  outline: none;
+}
+
+.overviewGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+
+.infoCard {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-grey-200);
+  padding: var(--space-6);
+}
+
+.cardHeading {
+  font: var(--text-heading-sm);
+  color: var(--color-hof);
+  margin-bottom: var(--space-4);
+}
+
+.dl {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-3) var(--space-4);
+}
+
+.dl dt {
+  font: var(--text-label);
+  color: var(--color-foggy);
+}
+
+.dl dd {
+  font: var(--text-body);
+  color: var(--color-hof);
+}
+
+.link {
+  color: var(--color-rausch);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.placeholder {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-grey-200);
+  padding: var(--space-10);
+  text-align: center;
+  color: var(--color-foggy);
+  font: var(--text-body);
+}
+
+.notesPanel {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-grey-200);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.notesHint {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  background: var(--color-info-bg);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.notesActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-grey-200);
+}
+
+.notFound {
+  font: var(--text-body);
+  color: var(--color-foggy);
+  margin-bottom: var(--space-4);
+}
+
+/* ── Shared tab section ── */
+.tabSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.tabSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+/* ── Photos ── */
+.photoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+
+.photoCard {
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.photoThumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: var(--color-grey-100);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+.photoThumb:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+}
+
+.photoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-normal) var(--ease-standard);
+}
+
+.photoThumb:hover .photoImg {
+  transform: scale(1.04);
+}
+
+.photoMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+}
+
+.photoAgent {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photoDate {
+  font: var(--text-caption);
+  color: var(--color-grey-400);
+  white-space: nowrap;
+}
+
+.lightboxImg {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+/* ── Timeline ── */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-left: var(--space-6);
+  border-left: 2px solid var(--color-grey-200);
+}
+
+.timelineItem {
+  position: relative;
+  padding-bottom: var(--space-6);
+}
+
+.timelineDot {
+  position: absolute;
+  left: calc(-1 * var(--space-6) - 5px);
+  top: var(--space-3);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-rausch);
+  border: 2px solid var(--color-white);
+  box-shadow: 0 0 0 2px var(--color-grey-200);
+}
+
+.timelineCard {
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-200);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+}
+
+.timelineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.timelineDate {
+  font: var(--text-body-strong);
+  color: var(--color-hof);
+}
+
+.timelineBadges {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.visitDl {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: var(--space-2) var(--space-4);
+}
+
+.visitDl dt {
+  font: var(--text-label);
+  color: var(--color-foggy);
+}
+
+.visitDl dd {
+  font: var(--text-body);
+  color: var(--color-hof);
+}
+
+/* ── Tags ── */
+.tagsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tagRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-200);
+  border-radius: var(--radius-md);
+}
+
+.tagType {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  min-width: 80px;
+}
+
+.tagSource {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  background: var(--color-grey-100);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.tagDate {
+  font: var(--text-caption);
+  color: var(--color-grey-400);
+  margin-left: auto;
+}
+
+/* ── Analytics ── */
+.analyticsMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.analyticsCard {
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.analyticsIcon {
+  color: var(--color-babu);
+}
+
+.analyticsValue {
+  font: var(--text-heading-lg);
+  color: var(--color-hof);
+  line-height: 1;
+}
+
+.analyticsLabel {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+}
+
+.analyticsChart {
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.searchTermsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.searchTermRow {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  position: relative;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.searchTermRank {
+  font: var(--text-caption);
+  color: var(--color-grey-400);
+  text-align: right;
+}
+
+.searchTermText {
+  font: var(--text-body);
+  color: var(--color-hof);
+  position: relative;
+  z-index: 1;
+}
+
+.searchTermCount {
+  font: var(--text-caption);
+  color: var(--color-foggy);
+  position: relative;
+  z-index: 1;
+}
+
+.searchTermBar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: var(--search-term-bar-width, 0%);
+  background: var(--color-grey-100);
+  border-radius: var(--radius-sm);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+/* ── Delete warning ── */
+.deleteWarning {
+  font: var(--text-body);
+  color: var(--color-foggy);
+}

@@ -1,0 +1,119 @@
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--color-white);
+  border-right: 1px solid var(--color-grey-200);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  transition: width var(--duration-normal) var(--ease-standard);
+  overflow: hidden;
+}
+
+.collapsed {
+  width: 64px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-height);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-grey-200);
+  flex-shrink: 0;
+}
+
+.logoMark {
+  font: var(--text-heading-md);
+  color: var(--color-rausch);
+  font-weight: 700;
+}
+
+.logoFull {
+  font: var(--text-heading-md);
+  color: var(--color-rausch);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.navList {
+  flex: 1;
+  padding: var(--space-4) 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  list-style: none;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 44px;
+  padding: 0 var(--space-4);
+  font: var(--text-body-strong);
+  color: var(--color-foggy);
+  border-radius: var(--radius-nav-item);
+  margin: 2px var(--space-2) 2px 0;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.navItem:hover {
+  background: var(--color-grey-100);
+  color: var(--color-hof);
+}
+
+.navItem:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: -2px;
+}
+
+.navItemActive {
+  background: rgba(255, 90, 95, 0.08);
+  color: var(--color-rausch);
+}
+
+.navItemActive:hover {
+  background: rgba(255, 90, 95, 0.12);
+  color: var(--color-rausch);
+}
+
+.navIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.navLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collapseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  margin: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--color-foggy);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
+.collapseBtn:hover {
+  background: var(--color-grey-100);
+  color: var(--color-hof);
+}
+
+.collapseBtn:focus-visible {
+  outline: 2px solid var(--color-rausch);
+  outline-offset: 2px;
+}

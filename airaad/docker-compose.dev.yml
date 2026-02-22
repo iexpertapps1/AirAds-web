@@ -1,0 +1,73 @@
+version: "3.9"
+
+# =============================================================================
+# AirAd — Development Override
+# =============================================================================
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Overrides:
+#   - Source code mounted as volumes for hot-reload
+#   - Django runserver instead of gunicorn
+#   - npm run dev instead of nginx-served build
+#   - DEBUG=True, development settings
+#   - Celery worker with --reload for auto-restart on code changes
+# =============================================================================
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DEBUG: "True"
+    volumes:
+      - ./backend:/app:cached
+    ports:
+      - "8000:8000"
+    command: python manage.py runserver 0.0.0.0:8000
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DEBUG: "True"
+    volumes:
+      - ./backend:/app:cached
+    command: celery -A celery_app worker --loglevel=debug --concurrency=2
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DEBUG: "True"
+    volumes:
+      - ./backend:/app:cached
+    command: celery -A celery_app beat --loglevel=debug
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./frontend:/app:cached
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    command: npm run dev
+
+  nginx:
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
