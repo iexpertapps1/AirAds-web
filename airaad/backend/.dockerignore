@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.git/
+tests/
+.pytest_cache/
+.coverage
+.coveragerc
+htmlcov/
+node_modules/
+*.egg-info/
+.mypy_cache/

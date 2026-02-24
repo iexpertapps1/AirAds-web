@@ -1,16 +1,20 @@
-name: AirAd CI
+name: AirAd CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, staging, develop]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
 
 jobs:
+  # =========================================================================
+  # CI JOBS — run on all branches and PRs
+  # =========================================================================
+
   # -------------------------------------------------------------------------
   # Job 1: Python lint
   # -------------------------------------------------------------------------
@@ -223,7 +227,7 @@ jobs:
         run: npm run type-check
 
   # -------------------------------------------------------------------------
-  # Job 6: Frontend build
+  # Job 7: Frontend build
   # -------------------------------------------------------------------------
   frontend-build:
     name: Frontend Build
@@ -250,12 +254,11 @@ jobs:
           VITE_API_BASE_URL: http://localhost:8000
 
   # -------------------------------------------------------------------------
-  # Job 7: Semgrep — static analysis (Python + TypeScript)
+  # Job 8: Semgrep — static analysis (Python + TypeScript)
   # -------------------------------------------------------------------------
   semgrep:
     name: Semgrep Static Analysis
     runs-on: ubuntu-latest
-    # Run on PRs only (push to main/develop uses the dedicated semgrep.ci action)
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
@@ -315,7 +318,7 @@ jobs:
           retention-days: 7
 
   # -------------------------------------------------------------------------
-  # Job 8: TruffleHog — secret scanning
+  # Job 9: TruffleHog — secret scanning
   # -------------------------------------------------------------------------
   secret-scan:
     name: Secret Scanning (TruffleHog)
@@ -333,7 +336,6 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          # Scan only the commits introduced by this PR
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
           extra_args: >-
@@ -342,7 +344,7 @@ jobs:
             --fail
 
   # -------------------------------------------------------------------------
-  # Job 9: AI Review — Claude + Semgrep orchestrator
+  # Job 10: AI Review — Claude + Semgrep orchestrator
   # -------------------------------------------------------------------------
   ai-review:
     name: AI Code Review (Claude)
@@ -378,7 +380,6 @@ jobs:
             --repo ${{ github.repository }} \
             --semgrep-results semgrep-merged.json \
             --output review-comments.json
-        # If ANTHROPIC_API_KEY is not set, fall back to Semgrep-only (no AI)
         continue-on-error: false
 
       - name: Upload review comments artifact
@@ -390,12 +391,136 @@ jobs:
           retention-days: 7
 
   # -------------------------------------------------------------------------
-  # Job 10: Quality gate — blocks merge on CRITICAL findings
+  # Job 11: Backend E2E tests — full user journey flows
+  # -------------------------------------------------------------------------
+  backend-e2e:
+    name: Backend E2E Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    defaults:
+      run:
+        working-directory: airaad/backend
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4-alpine
+        env:
+          POSTGRES_DB: test_airaad_db
+          POSTGRES_USER: airaad
+          POSTGRES_PASSWORD: airaad
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      ENCRYPTION_KEY: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      DATABASE_URL: postgis://airaad:airaad@localhost:5432/test_airaad_db
+      REDIS_URL: redis://localhost:6379/0
+      AWS_ACCESS_KEY_ID: test-key
+      AWS_SECRET_ACCESS_KEY: test-secret
+      AWS_STORAGE_BUCKET_NAME: test-bucket
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install GDAL
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev
+
+      - name: Install dependencies
+        run: pip install -r requirements/test.txt
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run backend E2E tests
+        run: |
+          pytest tests/e2e/ \
+            --tb=short \
+            -v \
+            --no-cov \
+            -m "integration" \
+            --junit-xml=e2e-results.xml
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-e2e-results
+          path: airaad/backend/e2e-results.xml
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # Job 12: Frontend E2E tests — Playwright
+  # -------------------------------------------------------------------------
+  frontend-e2e:
+    name: Frontend E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [frontend-build]
+    defaults:
+      run:
+        working-directory: airaad/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: airaad/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        run: npx playwright test --project=chromium
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
+          VITE_API_BASE_URL: http://localhost:8000
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: airaad/frontend/playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results
+          path: airaad/frontend/playwright-results.json
+          retention-days: 7
+
+  # -------------------------------------------------------------------------
+  # Job 13: Quality gate — blocks merge on CRITICAL findings
   # -------------------------------------------------------------------------
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    needs: [test, frontend-build, semgrep, secret-scan]
+    needs: [test, frontend-build, semgrep, secret-scan, backend-e2e, frontend-e2e]
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -405,7 +530,7 @@ jobs:
         with:
           name: review-comments
           path: .
-        continue-on-error: true  # artifact may not exist if ai-review was skipped
+        continue-on-error: true
 
       - name: Evaluate quality gate
         run: |
@@ -436,3 +561,289 @@ jobs:
           print("\n✅ Quality gate PASSED")
           sys.exit(0)
           EOF
+
+  # =========================================================================
+  # DEPLOY JOBS — only on push to specific branches, gated on CI
+  # =========================================================================
+
+  # -------------------------------------------------------------------------
+  # Job 14: Deploy Backend to Railway — DEVELOPMENT
+  # Triggers on push to develop branch
+  # -------------------------------------------------------------------------
+  deploy-backend-dev:
+    name: Deploy Backend → Development (Railway)
+    runs-on: ubuntu-latest
+    needs: [test, backend-build, frontend-build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+      url: ${{ secrets.RAILWAY_DEV_BACKEND_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway (development)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_DEV_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_DEV_SERVICE_ID_BACKEND }} --detach
+        working-directory: airaad/backend
+
+      - name: Wait for deployment health check
+        run: sleep 30
+
+      - name: Run database migrations
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_DEV_TOKEN }}
+        run: railway run --service ${{ secrets.RAILWAY_DEV_SERVICE_ID_BACKEND }} python manage.py migrate --noinput
+        working-directory: airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 15: Deploy Backend to Railway — STAGING
+  # Triggers on push to staging branch
+  # -------------------------------------------------------------------------
+  deploy-backend-staging:
+    name: Deploy Backend → Staging (Railway)
+    runs-on: ubuntu-latest
+    needs: [test, backend-build, frontend-build]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: ${{ secrets.RAILWAY_STAGING_BACKEND_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway (staging)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_STAGING_SERVICE_ID_BACKEND }} --detach
+        working-directory: airaad/backend
+
+      - name: Wait for deployment health check
+        run: sleep 30
+
+      - name: Run database migrations
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: railway run --service ${{ secrets.RAILWAY_STAGING_SERVICE_ID_BACKEND }} python manage.py migrate --noinput
+        working-directory: airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 16: Deploy Backend to Railway — PRODUCTION
+  # Triggers on push to main branch
+  # -------------------------------------------------------------------------
+  deploy-backend-prod:
+    name: Deploy Backend → Production (Railway)
+    runs-on: ubuntu-latest
+    needs: [test, backend-build, frontend-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ secrets.RAILWAY_PROD_BACKEND_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway (production)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_BACKEND }} --detach
+        working-directory: airaad/backend
+
+      - name: Wait for deployment health check
+        run: sleep 45
+
+      - name: Run database migrations
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+        run: railway run --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_BACKEND }} python manage.py migrate --noinput
+        working-directory: airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 17: Deploy Celery Worker to Railway — DEVELOPMENT
+  # -------------------------------------------------------------------------
+  deploy-celery-dev:
+    name: Deploy Celery → Development (Railway)
+    runs-on: ubuntu-latest
+    needs: [deploy-backend-dev]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy Celery worker to Railway (development)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_DEV_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_DEV_SERVICE_ID_CELERY }} --detach
+        working-directory: airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 18: Deploy Celery Worker to Railway — STAGING
+  # -------------------------------------------------------------------------
+  deploy-celery-staging:
+    name: Deploy Celery → Staging (Railway)
+    runs-on: ubuntu-latest
+    needs: [deploy-backend-staging]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy Celery worker to Railway (staging)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_STAGING_SERVICE_ID_CELERY }} --detach
+        working-directory: airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 19: Deploy Celery Worker to Railway — PRODUCTION
+  # -------------------------------------------------------------------------
+  deploy-celery-prod:
+    name: Deploy Celery → Production (Railway)
+    runs-on: ubuntu-latest
+    needs: [deploy-backend-prod]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy Celery worker to Railway (production)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_CELERY }} --detach
+        working-directory: airaad/backend
+
+  # -------------------------------------------------------------------------
+  # Job 20: Deploy Frontend to Vercel — DEVELOPMENT
+  # Triggers on push to develop branch
+  # -------------------------------------------------------------------------
+  deploy-frontend-dev:
+    name: Deploy Frontend → Development (Vercel)
+    runs-on: ubuntu-latest
+    needs: [test, frontend-build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+      url: ${{ secrets.VERCEL_DEV_URL }}
+    defaults:
+      run:
+        working-directory: airaad/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: airaad/frontend/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build for development
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VITE_API_BASE_URL: ${{ secrets.RAILWAY_DEV_BACKEND_URL }}
+          VITE_APP_ENV: development
+
+      - name: Deploy to Vercel (development)
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+
+  # -------------------------------------------------------------------------
+  # Job 21: Deploy Frontend to Vercel — STAGING
+  # Triggers on push to staging branch
+  # -------------------------------------------------------------------------
+  deploy-frontend-staging:
+    name: Deploy Frontend → Staging (Vercel)
+    runs-on: ubuntu-latest
+    needs: [test, frontend-build]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: ${{ secrets.VERCEL_STAGING_URL }}
+    defaults:
+      run:
+        working-directory: airaad/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: airaad/frontend/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build for staging
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VITE_API_BASE_URL: ${{ secrets.RAILWAY_STAGING_BACKEND_URL }}
+          VITE_APP_ENV: staging
+
+      - name: Deploy to Vercel (staging)
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+
+  # -------------------------------------------------------------------------
+  # Job 22: Deploy Frontend to Vercel — PRODUCTION
+  # Triggers on push to main branch
+  # -------------------------------------------------------------------------
+  deploy-frontend-prod:
+    name: Deploy Frontend → Production (Vercel)
+    runs-on: ubuntu-latest
+    needs: [test, frontend-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ secrets.VERCEL_PROD_URL }}
+    defaults:
+      run:
+        working-directory: airaad/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: airaad/frontend/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build for production
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VITE_API_BASE_URL: ${{ secrets.RAILWAY_PROD_BACKEND_URL }}
+          VITE_APP_ENV: production
+
+      - name: Deploy to Vercel (production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
