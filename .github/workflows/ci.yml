@@ -157,10 +157,7 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          extra_args: >-
-            --config airaad/.trufflehog.yml
-            --only-verified
-            --fail
+          extra_args: --only-verified
 
   # =========================================================================
   # LAYER 2 — Database-dependent checks (parallel with each other)

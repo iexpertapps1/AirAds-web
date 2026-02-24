@@ -18,7 +18,7 @@ from django.utils import timezone
 from pydantic import ValidationError as PydanticValidationError
 
 from apps.audit.utils import log_action
-from core.encryption import EncryptionError, decrypt, encrypt
+from core.encryption import EncryptionError, decrypt, encrypt  # noqa: F401 (EncryptionError used in docstrings)
 from core.schemas import BusinessHoursSchema
 
 from .models import DataSource, QCStatus, Vendor
@@ -26,6 +26,178 @@ from .models import DataSource, QCStatus, Vendor
 logger = logging.getLogger(__name__)
 
 ERROR_LOG_CAP = 1000
+
+
+# ---------------------------------------------------------------------------
+# Vendor sub-resource services
+# ---------------------------------------------------------------------------
+
+def get_vendor_photos(vendor_pk: str) -> list[dict[str, Any]]:
+    """Return FieldPhotos for a vendor with presigned S3 URLs.
+
+    Args:
+        vendor_pk: UUID string of the vendor.
+
+    Returns:
+        List of photo dicts with presigned_url included.
+    """
+    from apps.field_ops.models import FieldPhoto
+    from core.storage import StorageError, generate_presigned_url
+
+    photos = FieldPhoto.objects.filter(
+        field_visit__vendor_id=vendor_pk,
+        is_active=True,
+    ).select_related("field_visit").order_by("-uploaded_at")
+
+    result = []
+    for photo in photos:
+        try:
+            url = generate_presigned_url(photo.s3_key)
+        except (StorageError, ValueError):
+            url = ""
+        result.append({
+            "id": photo.id,
+            "field_visit_id": photo.field_visit_id,
+            "presigned_url": url,
+            "caption": photo.caption,
+            "is_active": photo.is_active,
+            "uploaded_at": photo.uploaded_at,
+        })
+    return result
+
+
+def get_vendor_visits(vendor_pk: str) -> Any:
+    """Return FieldVisits for a vendor.
+
+    Args:
+        vendor_pk: UUID string of the vendor.
+
+    Returns:
+        QuerySet of FieldVisit instances.
+    """
+    from apps.field_ops.models import FieldVisit
+
+    return FieldVisit.objects.filter(
+        vendor_id=vendor_pk,
+    ).select_related("agent").order_by("-visited_at")
+
+
+def get_vendor_tags(vendor_pk: str) -> Any:
+    """Return tags assigned to a vendor.
+
+    Args:
+        vendor_pk: UUID string of the vendor.
+
+    Returns:
+        QuerySet of Tag instances.
+    """
+    vendor = Vendor.objects.get(id=vendor_pk)
+    return vendor.tags.all()
+
+
+@transaction.atomic
+def assign_vendor_tag(vendor_pk: str, tag_id: str, actor: Any, request: HttpRequest) -> Any:
+    """Assign a tag to a vendor.
+
+    Args:
+        vendor_pk: UUID string of the vendor.
+        tag_id: UUID string of the tag to assign.
+        actor: AdminUser performing the action.
+        request: HTTP request for audit tracing.
+
+    Returns:
+        The Tag instance that was assigned.
+
+    Raises:
+        ValueError: If vendor or tag not found, or tag is inactive.
+    """
+    from apps.tags.models import Tag
+
+    try:
+        vendor = Vendor.objects.get(id=vendor_pk)
+    except Vendor.DoesNotExist:
+        raise ValueError(f"Vendor '{vendor_pk}' not found")
+
+    try:
+        tag = Tag.objects.get(id=tag_id)
+    except Tag.DoesNotExist:
+        raise ValueError(f"Tag '{tag_id}' not found")
+
+    if not tag.is_active:
+        raise ValueError(f"Tag '{tag.name}' is not active and cannot be assigned")
+
+    MAX_TAGS_PER_VENDOR = 15
+    current_count = vendor.tags.count()
+    if current_count >= MAX_TAGS_PER_VENDOR:
+        raise ValueError(
+            f"Vendor already has {current_count} tags. "
+            f"Maximum allowed is {MAX_TAGS_PER_VENDOR} (prevents keyword stuffing)."
+        )
+
+    vendor.tags.add(tag)
+
+    log_action(
+        action="VENDOR_TAG_ASSIGNED",
+        actor=actor,
+        target_obj=vendor,
+        request=request,
+        before={},
+        after={"tag_id": str(tag.id), "tag_name": tag.name, "tag_type": tag.tag_type},
+    )
+    return tag
+
+
+@transaction.atomic
+def remove_vendor_tag(vendor_pk: str, tag_pk: str, actor: Any, request: HttpRequest) -> None:
+    """Remove a tag from a vendor.
+
+    Args:
+        vendor_pk: UUID string of the vendor.
+        tag_pk: UUID string of the tag to remove.
+        actor: AdminUser performing the action.
+        request: HTTP request for audit tracing.
+
+    Raises:
+        ValueError: If vendor or tag not found.
+    """
+    from apps.tags.models import Tag
+
+    try:
+        vendor = Vendor.objects.get(id=vendor_pk)
+    except Vendor.DoesNotExist:
+        raise ValueError(f"Vendor '{vendor_pk}' not found")
+
+    try:
+        tag = Tag.objects.get(id=tag_pk)
+    except Tag.DoesNotExist:
+        raise ValueError(f"Tag '{tag_pk}' not found")
+
+    vendor.tags.remove(tag)
+
+    log_action(
+        action="VENDOR_TAG_REMOVED",
+        actor=actor,
+        target_obj=vendor,
+        request=request,
+        before={"tag_id": str(tag.id), "tag_name": tag.name},
+        after={},
+    )
+
+
+def get_vendor_analytics_stub(vendor_pk: str) -> dict[str, int]:
+    """Return Phase A analytics stub for a vendor.
+
+    Args:
+        vendor_pk: UUID string of the vendor.
+
+    Returns:
+        Dict with zero-value analytics fields (Phase B will populate these).
+    """
+    return {
+        "total_views": 0,
+        "views_this_week": 0,
+        "search_appearances": 0,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +277,7 @@ def create_vendor(
     landmark_id: str | None = None,
     business_hours: dict[str, Any] | None = None,
     data_source: str = DataSource.MANUAL_ENTRY,
+    storefront_photo_key: str = "",
 ) -> Vendor:
     """Create a new Vendor record.
 
@@ -176,6 +349,7 @@ def create_vendor(
         phone_number_encrypted=phone_encrypted,
         business_hours=validated_hours,
         data_source=data_source,
+        storefront_photo_key=storefront_photo_key,
     )
 
     log_action(
@@ -239,12 +413,23 @@ def update_vendor(
         "business_name", "slug", "description", "address_text",
         "business_hours", "qc_notes", "data_source",
         "city_id", "area_id", "landmark_id",
+        "storefront_photo_key", "claimed_status",
     }
+    changed_fields: list[str] = []
     for field, value in updates.items():
         if field in allowed_fields:
             setattr(vendor, field, value)
+            changed_fields.append(field)
 
-    vendor.save()
+    # Always include gps_point and phone if they were updated above
+    if "phone" in updates or vendor.phone_number_encrypted:
+        changed_fields.append("phone_number_encrypted")
+    if "gps_lon" in updates or "gps_lat" in updates:
+        changed_fields.append("gps_point")
+
+    # Deduplicate and always include updated_at
+    save_fields = list(dict.fromkeys(changed_fields + ["updated_at"]))
+    vendor.save(update_fields=save_fields)
     log_action(
         action="VENDOR_UPDATED",
         actor=actor,
@@ -304,6 +489,18 @@ def update_qc_status(
     if new_status not in valid_statuses:
         raise ValueError(f"Invalid QC status '{new_status}'. Must be one of {valid_statuses}")
 
+    if new_status == QCStatus.APPROVED:
+        from apps.tags.models import TagType
+        has_category_tag = vendor.tags.filter(
+            tag_type=TagType.CATEGORY,
+            is_active=True,
+        ).exists()
+        if not has_category_tag:
+            raise ValueError(
+                "Cannot approve vendor: at least one active CATEGORY tag must "
+                "be assigned before approval. Assign a category tag first."
+            )
+
     before = {"qc_status": vendor.qc_status, "qc_notes": vendor.qc_notes}
 
     vendor.qc_status = new_status
@@ -313,7 +510,7 @@ def update_qc_status(
     vendor.save(update_fields=["qc_status", "qc_reviewed_by", "qc_reviewed_at", "qc_notes", "updated_at"])
 
     log_action(
-        action="VENDOR_QC_STATUS_UPDATED",
+        action="VENDOR_QC_STATUS_CHANGED",
         actor=reviewer,
         target_obj=vendor,
         request=request,
