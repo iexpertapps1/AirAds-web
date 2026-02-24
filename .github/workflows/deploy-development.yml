@@ -2,8 +2,11 @@
 # AirAd Deploy — Development Environment
 # =============================================================================
 # Triggers: when "AirAd CI" workflow completes successfully on develop branch.
-# Auto-deploys backend + celery to Railway, frontend to Vercel.
+# Auto-deploys backend + celery to Railway (development env), frontend to Vercel (preview).
 # Post-deploy health check verifies the environment is live.
+#
+# Uses single Railway project (--environment development) and single Vercel
+# project (preview deploy).
 # =============================================================================
 
 name: "Deploy → Development"
@@ -20,6 +23,7 @@ concurrency:
 
 env:
   NODE_VERSION: "20"
+  RAILWAY_ENVIRONMENT: development
 
 jobs:
   # -------------------------------------------------------------------------
@@ -34,7 +38,7 @@ jobs:
         run: echo "✅ CI workflow ${{ github.event.workflow_run.id }} passed on develop"
 
   # -------------------------------------------------------------------------
-  # Deploy backend to Railway (development)
+  # Deploy backend to Railway (development environment)
   # -------------------------------------------------------------------------
   deploy-backend:
     name: "Backend → Railway Dev"
@@ -42,7 +46,7 @@ jobs:
     needs: [gate]
     environment:
       name: development
-      url: ${{ secrets.RAILWAY_DEV_BACKEND_URL }}
+      url: ${{ secrets.RAILWAY_DEV_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,8 +57,8 @@ jobs:
 
       - name: Deploy backend
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_DEV_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_DEV_SERVICE_ID_BACKEND }} --detach
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID_BACKEND }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --detach
         working-directory: airaad/backend
 
       - name: Wait for Railway deployment to stabilize
@@ -62,12 +66,12 @@ jobs:
 
       - name: Run database migrations
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_DEV_TOKEN }}
-        run: railway run --service ${{ secrets.RAILWAY_DEV_SERVICE_ID_BACKEND }} python manage.py migrate --noinput
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway run --service ${{ secrets.RAILWAY_SERVICE_ID_BACKEND }} --environment ${{ env.RAILWAY_ENVIRONMENT }} python manage.py migrate --noinput
         working-directory: airaad/backend
 
   # -------------------------------------------------------------------------
-  # Deploy Celery worker to Railway (development)
+  # Deploy Celery worker to Railway (development environment)
   # -------------------------------------------------------------------------
   deploy-celery:
     name: "Celery → Railway Dev"
@@ -85,12 +89,12 @@ jobs:
 
       - name: Deploy Celery worker
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_DEV_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_DEV_SERVICE_ID_CELERY }} --detach
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID_CELERY }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --detach
         working-directory: airaad/backend
 
   # -------------------------------------------------------------------------
-  # Deploy frontend to Vercel (development)
+  # Deploy frontend to Vercel (preview deployment)
   # -------------------------------------------------------------------------
   deploy-frontend:
     name: "Frontend → Vercel Dev"
@@ -98,7 +102,6 @@ jobs:
     needs: [gate]
     environment:
       name: development
-      url: ${{ secrets.VERCEL_DEV_URL }}
     defaults:
       run:
         working-directory: airaad/frontend
@@ -118,15 +121,27 @@ jobs:
 
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build for development
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
         env:
-          VITE_API_BASE_URL: ${{ secrets.RAILWAY_DEV_BACKEND_URL }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_API_BASE_URL: ${{ secrets.RAILWAY_DEV_URL }}
           VITE_APP_ENV: development
 
-      - name: Deploy to Vercel
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel (preview)
+        id: vercel-deploy
+        run: |
+          URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $URL"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
   # -------------------------------------------------------------------------
   # Post-deploy health check
@@ -138,7 +153,7 @@ jobs:
     steps:
       - name: Check backend health endpoint
         run: |
-          BACKEND_URL="${{ secrets.RAILWAY_DEV_BACKEND_URL }}"
+          BACKEND_URL="${{ secrets.RAILWAY_DEV_URL }}"
           echo "Checking $BACKEND_URL/api/v1/health/ ..."
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/v1/health/" || echo "000")
@@ -151,17 +166,6 @@ jobs:
           done
           echo "❌ Backend health check FAILED after 5 attempts"
           exit 1
-
-      - name: Check frontend is accessible
-        run: |
-          FRONTEND_URL="${{ secrets.VERCEL_DEV_URL }}"
-          echo "Checking $FRONTEND_URL ..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ Frontend accessible (HTTP $STATUS)"
-          else
-            echo "⚠️ Frontend returned HTTP $STATUS (may still be deploying)"
-          fi
 
   # -------------------------------------------------------------------------
   # Notify team
@@ -189,7 +193,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "${{ steps.status.outputs.emoji }} *Development Deploy ${{ steps.status.outputs.status }}*\nBranch: `develop`\nCommit: `${{ github.event.workflow_run.head_sha }}`\nBackend: ${{ secrets.RAILWAY_DEV_BACKEND_URL }}\nFrontend: ${{ secrets.VERCEL_DEV_URL }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "${{ steps.status.outputs.emoji }} *Development Deploy ${{ steps.status.outputs.status }}*\nBranch: `develop`\nCommit: `${{ github.event.workflow_run.head_sha }}`\nBackend: ${{ secrets.RAILWAY_DEV_URL }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -202,8 +206,7 @@ jobs:
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Branch | \`develop\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ github.event.workflow_run.head_sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend | ${{ secrets.RAILWAY_DEV_BACKEND_URL }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | ${{ secrets.VERCEL_DEV_URL }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ secrets.RAILWAY_DEV_URL }} |" >> $GITHUB_STEP_SUMMARY
 
   # -------------------------------------------------------------------------
   # Notify on CI failure (deploy skipped)

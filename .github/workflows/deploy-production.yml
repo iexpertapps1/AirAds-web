@@ -9,6 +9,9 @@
 # - Post-deploy health check + smoke tests
 # - Auto-rollback on failure via Railway CLI
 # - Team notified on EVERY production deploy (success or failure)
+#
+# Uses single Railway project (--environment production) and single Vercel
+# project (--prod deploy).
 # =============================================================================
 
 name: "Deploy → Production"
@@ -25,6 +28,7 @@ concurrency:
 
 env:
   NODE_VERSION: "20"
+  RAILWAY_ENVIRONMENT: production
 
 jobs:
   # -------------------------------------------------------------------------
@@ -63,7 +67,7 @@ jobs:
           echo "🏷️ Created rollback tag: ${{ steps.meta.outputs.release_tag }}"
 
   # -------------------------------------------------------------------------
-  # Deploy backend to Railway (production)
+  # Deploy backend to Railway (production environment)
   # -------------------------------------------------------------------------
   deploy-backend:
     name: "Backend → Railway Prod"
@@ -71,7 +75,7 @@ jobs:
     needs: [gate]
     environment:
       name: production
-      url: ${{ secrets.RAILWAY_PROD_BACKEND_URL }}
+      url: ${{ secrets.RAILWAY_PROD_URL }}
     outputs:
       deploy_success: ${{ steps.deploy.outcome }}
     steps:
@@ -85,8 +89,8 @@ jobs:
       - name: Deploy backend
         id: deploy
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_BACKEND }} --detach
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID_BACKEND }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --detach
         working-directory: airaad/backend
 
       - name: Wait for Railway deployment to stabilize
@@ -94,12 +98,12 @@ jobs:
 
       - name: Run database migrations
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
-        run: railway run --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_BACKEND }} python manage.py migrate --noinput
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway run --service ${{ secrets.RAILWAY_SERVICE_ID_BACKEND }} --environment ${{ env.RAILWAY_ENVIRONMENT }} python manage.py migrate --noinput
         working-directory: airaad/backend
 
   # -------------------------------------------------------------------------
-  # Deploy Celery worker to Railway (production)
+  # Deploy Celery worker to Railway (production environment)
   # -------------------------------------------------------------------------
   deploy-celery:
     name: "Celery → Railway Prod"
@@ -117,8 +121,8 @@ jobs:
 
       - name: Deploy Celery worker
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_CELERY }} --detach
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID_CELERY }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --detach
         working-directory: airaad/backend
 
   # -------------------------------------------------------------------------
@@ -130,7 +134,6 @@ jobs:
     needs: [gate]
     environment:
       name: production
-      url: ${{ secrets.VERCEL_PROD_URL }}
     defaults:
       run:
         working-directory: airaad/frontend
@@ -150,15 +153,23 @@ jobs:
 
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build for production
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
-          VITE_API_BASE_URL: ${{ secrets.RAILWAY_PROD_BACKEND_URL }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VITE_API_BASE_URL: ${{ secrets.RAILWAY_PROD_URL }}
           VITE_APP_ENV: production
 
       - name: Deploy to Vercel (production)
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
   # -------------------------------------------------------------------------
   # Post-deploy verification — comprehensive production checks
@@ -173,7 +184,7 @@ jobs:
       - name: Backend health check (with retries)
         id: backend-health
         run: |
-          BACKEND_URL="${{ secrets.RAILWAY_PROD_BACKEND_URL }}"
+          BACKEND_URL="${{ secrets.RAILWAY_PROD_URL }}"
           echo "Checking $BACKEND_URL/api/v1/health/ ..."
           PASSED=false
           for i in 1 2 3 4 5 6; do
@@ -198,7 +209,7 @@ jobs:
 
       - name: Verify DEBUG is off
         run: |
-          BACKEND_URL="${{ secrets.RAILWAY_PROD_BACKEND_URL }}"
+          BACKEND_URL="${{ secrets.RAILWAY_PROD_URL }}"
           RESPONSE=$(curl -s "$BACKEND_URL/api/v1/nonexistent-endpoint-check/" || echo "")
           if echo "$RESPONSE" | grep -q "Traceback\|INSTALLED_APPS\|DEBUG = True"; then
             echo "❌ PRODUCTION IS RUNNING IN DEBUG MODE — CRITICAL SECURITY ISSUE"
@@ -208,8 +219,7 @@ jobs:
 
       - name: Verify HTTPS redirect
         run: |
-          BACKEND_URL="${{ secrets.RAILWAY_PROD_BACKEND_URL }}"
-          # Railway handles SSL termination, so we verify the app responds on HTTPS
+          BACKEND_URL="${{ secrets.RAILWAY_PROD_URL }}"
           if echo "$BACKEND_URL" | grep -q "^https://"; then
             echo "✅ Backend URL uses HTTPS"
           else
@@ -218,7 +228,7 @@ jobs:
 
       - name: Verify API auth is enforced
         run: |
-          BACKEND_URL="${{ secrets.RAILWAY_PROD_BACKEND_URL }}"
+          BACKEND_URL="${{ secrets.RAILWAY_PROD_URL }}"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/v1/vendors/" --max-time 10 || echo "000")
           if [ "$STATUS" = "401" ] || [ "$STATUS" = "403" ]; then
             echo "✅ API authentication enforced (HTTP $STATUS)"
@@ -229,8 +239,7 @@ jobs:
 
       - name: Check frontend is accessible
         run: |
-          FRONTEND_URL="${{ secrets.VERCEL_PROD_URL }}"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL" --max-time 10 || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://air-ads-web.vercel.app" --max-time 10 || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "✅ Frontend accessible (HTTP $STATUS)"
           else
@@ -240,10 +249,9 @@ jobs:
 
       - name: Verify security headers
         run: |
-          FRONTEND_URL="${{ secrets.VERCEL_PROD_URL }}"
-          HEADERS=$(curl -sI "$FRONTEND_URL" --max-time 10 || echo "")
+          HEADERS=$(curl -sI "https://air-ads-web.vercel.app" --max-time 10 || echo "")
           MISSING=0
-          for HEADER in "x-content-type-options" "x-frame-options" "referrer-policy"; do
+          for HEADER in "x-content-type-options" "x-frame-options" "referrer-policy" "strict-transport-security" "content-security-policy"; do
             if echo "$HEADERS" | grep -qi "$HEADER"; then
               echo "✅ $HEADER present"
             else
@@ -284,25 +292,24 @@ jobs:
 
       - name: Rollback backend to previous deployment
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           echo "🔄 ROLLING BACK production backend..."
           echo "   Failed release: ${{ needs.gate.outputs.release_tag }}"
-          # Railway rollback to previous deployment
-          railway rollback --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_BACKEND }} --yes 2>/dev/null || \
+          railway rollback --service ${{ secrets.RAILWAY_SERVICE_ID_BACKEND }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --yes 2>/dev/null || \
             echo "⚠️ Railway rollback command not available — manual rollback may be needed"
 
       - name: Rollback Celery worker
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway rollback --service ${{ secrets.RAILWAY_PROD_SERVICE_ID_CELERY }} --yes 2>/dev/null || \
+          railway rollback --service ${{ secrets.RAILWAY_SERVICE_ID_CELERY }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --yes 2>/dev/null || \
             echo "⚠️ Celery rollback — manual intervention may be needed"
 
       - name: Verify rollback health
         run: |
           sleep 30
-          BACKEND_URL="${{ secrets.RAILWAY_PROD_BACKEND_URL }}"
+          BACKEND_URL="${{ secrets.RAILWAY_PROD_URL }}"
           for i in 1 2 3; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/v1/health/" --max-time 10 || echo "000")
             if [ "$STATUS" = "200" ]; then
@@ -353,7 +360,7 @@ jobs:
         with:
           payload: |
             {
-              "text": "${{ steps.status.outputs.emoji }} *PRODUCTION Deploy ${{ steps.status.outputs.status }}*\n${{ steps.status.outputs.detail }}\nRelease: `${{ needs.gate.outputs.release_tag }}`\nCommit: `${{ needs.gate.outputs.short_sha }}`\nBackend: ${{ secrets.RAILWAY_PROD_BACKEND_URL }}\nFrontend: ${{ secrets.VERCEL_PROD_URL }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "${{ steps.status.outputs.emoji }} *PRODUCTION Deploy ${{ steps.status.outputs.status }}*\n${{ steps.status.outputs.detail }}\nRelease: `${{ needs.gate.outputs.release_tag }}`\nCommit: `${{ needs.gate.outputs.short_sha }}`\nBackend: ${{ secrets.RAILWAY_PROD_URL }}\nFrontend: https://air-ads-web.vercel.app\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -368,8 +375,8 @@ jobs:
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Release Tag | \`${{ needs.gate.outputs.release_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Commit | \`${{ needs.gate.outputs.short_sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend | ${{ secrets.RAILWAY_PROD_BACKEND_URL }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | ${{ secrets.VERCEL_PROD_URL }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ secrets.RAILWAY_PROD_URL }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | https://air-ads-web.vercel.app |" >> $GITHUB_STEP_SUMMARY
 
   # -------------------------------------------------------------------------
   # Notify on CI failure (deploy skipped)
