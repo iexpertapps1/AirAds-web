@@ -16,10 +16,10 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AdminUser
 
-
 # ---------------------------------------------------------------------------
 # Journey 1: Full vendor lifecycle
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 @pytest.mark.integration
@@ -68,12 +68,12 @@ class TestVendorLifecycleJourney:
         vendor_ids = [v["id"] for v in list_resp.data["data"]]
         assert vendor_id in vendor_ids
 
-        # Step 3: Get vendor detail — phone should be decrypted
+        # Step 3: Get vendor detail — phone should be masked
         detail_resp = auth_client.get(
             reverse("vendor-detail", kwargs={"pk": vendor_id})
         )
         assert detail_resp.status_code == status.HTTP_200_OK
-        assert detail_resp.data["data"]["phone_number"] == "+923001111111"
+        assert detail_resp.data["data"]["phone_number"] == "*********1111"
         assert detail_resp.data["data"]["business_name"] == "E2E Test Restaurant"
         assert detail_resp.data["data"]["city_name"] == "Karachi"
         assert detail_resp.data["data"]["area_name"] == "DHA Phase 6"
@@ -89,6 +89,7 @@ class TestVendorLifecycleJourney:
 
         # Step 5: Assign category tag (required by R2 before approval)
         from apps.vendors.models import Vendor as VendorModel
+
         v = VendorModel.objects.get(id=vendor_id)
         v.tags.add(category_tag)
 
@@ -116,13 +117,12 @@ class TestVendorLifecycleJourney:
 
         # Step 8: Verify vendor is gone from list (soft deleted)
         from apps.vendors.models import Vendor
+
         assert not Vendor.objects.filter(id=vendor_id).exists()
         assert Vendor.all_objects.filter(id=vendor_id, is_deleted=True).exists()
 
         # Step 9: GET on deleted vendor returns 404
-        gone_resp = auth_client.get(
-            reverse("vendor-detail", kwargs={"pk": vendor_id})
-        )
+        gone_resp = auth_client.get(reverse("vendor-detail", kwargs={"pk": vendor_id}))
         assert gone_resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_vendor_not_in_list_after_soft_delete(
@@ -149,12 +149,15 @@ class TestVendorLifecycleJourney:
 # Journey 2: QC status transitions
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.django_db
 @pytest.mark.integration
 class TestQCStatusTransitionJourney:
     """PENDING → REJECTED → NEEDS_REVIEW → APPROVED → FLAGGED."""
 
-    def test_qc_status_transitions(self, auth_client: APIClient, vendor, category_tag) -> None:
+    def test_qc_status_transitions(
+        self, auth_client: APIClient, vendor, category_tag
+    ) -> None:
         """QC status can transition through all valid states."""
         vendor_id = str(vendor.id)
         qc_url = reverse("vendor-qc-status", kwargs={"pk": vendor_id})
@@ -198,7 +201,9 @@ class TestQCStatusTransitionJourney:
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["data"]["qc_status"] == "FLAGGED"
 
-    def test_invalid_qc_status_returns_400(self, auth_client: APIClient, vendor) -> None:
+    def test_invalid_qc_status_returns_400(
+        self, auth_client: APIClient, vendor
+    ) -> None:
         """Invalid QC status value returns 400."""
         resp = auth_client.patch(
             reverse("vendor-qc-status", kwargs={"pk": str(vendor.id)}),
@@ -228,6 +233,7 @@ class TestQCStatusTransitionJourney:
 # ---------------------------------------------------------------------------
 # Journey 3: Vendor search and filter
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 @pytest.mark.integration
@@ -259,11 +265,11 @@ class TestVendorSearchFilterJourney:
         names = [v["business_name"] for v in resp.data["data"]]
         assert any("Test Grill" in name for name in names)
 
-    def test_search_no_match_returns_empty(self, auth_client: APIClient, vendor) -> None:
+    def test_search_no_match_returns_empty(
+        self, auth_client: APIClient, vendor
+    ) -> None:
         """Search with no matching term returns empty results."""
-        resp = auth_client.get(
-            reverse("vendor-list"), {"search": "ZZZNOMATCHXXX"}
-        )
+        resp = auth_client.get(reverse("vendor-list"), {"search": "ZZZNOMATCHXXX"})
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data["count"] == 0
 
@@ -277,6 +283,7 @@ class TestVendorSearchFilterJourney:
 # ---------------------------------------------------------------------------
 # Journey 4: Vendor creation audit trail
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 @pytest.mark.integration

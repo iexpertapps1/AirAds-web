@@ -17,6 +17,7 @@ class TestVendorModel:
         vendor.delete()
 
         from apps.vendors.models import Vendor
+
         assert Vendor.all_objects.filter(id=vendor_id, is_deleted=True).exists()
 
     def test_default_manager_excludes_deleted(self, vendor):
@@ -68,10 +69,14 @@ class TestVendorServices:
                 gps_lat=24.82,
                 actor=super_admin_user,
                 request=None,
-                business_hours={"MON": {"open": "18:00", "close": "09:00", "is_closed": False}},
+                business_hours={
+                    "MON": {"open": "18:00", "close": "09:00", "is_closed": False}
+                },
             )
 
-    def test_create_vendor_duplicate_slug_raises(self, vendor, city, area, super_admin_user):
+    def test_create_vendor_duplicate_slug_raises(
+        self, vendor, city, area, super_admin_user
+    ):
         """Duplicate slug raises ValueError."""
         from apps.vendors.services import create_vendor
 
@@ -123,7 +128,9 @@ class TestVendorServices:
 
         before_count = AuditLog.objects.filter(action="VENDOR_DELETED").count()
         soft_delete_vendor(vendor=vendor, actor=super_admin_user, request=None)
-        assert AuditLog.objects.filter(action="VENDOR_DELETED").count() == before_count + 1
+        assert (
+            AuditLog.objects.filter(action="VENDOR_DELETED").count() == before_count + 1
+        )
 
 
 @pytest.mark.django_db
@@ -143,16 +150,17 @@ class TestVendorViews:
         response = api_client.get(url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_get_vendor_detail_returns_decrypted_phone(self, auth_client, vendor):
-        """GET /api/v1/vendors/<pk>/ returns decrypted phone_number."""
+    def test_get_vendor_detail_returns_masked_phone(self, auth_client, vendor):
+        """GET /api/v1/vendors/<pk>/ returns masked phone_number."""
         url = reverse("vendor-detail", kwargs={"pk": str(vendor.id)})
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["data"]["phone_number"] == "+923001234567"
+        assert response.data["data"]["phone_number"] == "*********4567"
 
     def test_get_vendor_detail_not_found(self, auth_client):
         """GET with non-existent UUID returns 404."""
         import uuid
+
         url = reverse("vendor-detail", kwargs={"pk": str(uuid.uuid4())})
         response = auth_client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -164,6 +172,7 @@ class TestVendorViews:
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
         from apps.vendors.models import Vendor
+
         assert not Vendor.objects.filter(id=vendor.id).exists()
         assert Vendor.all_objects.filter(id=vendor.id, is_deleted=True).exists()
 

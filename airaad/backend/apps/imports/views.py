@@ -35,7 +35,6 @@ class ImportBatchListCreateView(APIView):
             AdminRole.SUPER_ADMIN,
             AdminRole.CITY_MANAGER,
             AdminRole.DATA_ENTRY,
-            AdminRole.OPERATIONS_MANAGER,
         )
     ]
     parser_classes = [MultiPartParser, FormParser]
@@ -131,7 +130,6 @@ class ImportBatchDetailView(APIView):
             AdminRole.SUPER_ADMIN,
             AdminRole.CITY_MANAGER,
             AdminRole.DATA_ENTRY,
-            AdminRole.OPERATIONS_MANAGER,
         )
     ]
 
