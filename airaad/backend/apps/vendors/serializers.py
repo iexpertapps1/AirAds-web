@@ -10,8 +10,9 @@ read_only_fields explicitly declared.
 
 import logging
 
-from core.encryption import EncryptionError, decrypt
 from rest_framework import serializers
+
+from core.encryption import EncryptionError, decrypt
 
 from .models import DataSource, QCStatus, Vendor
 

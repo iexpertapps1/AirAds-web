@@ -10,8 +10,9 @@ Idempotency:
 
 import logging
 
-from apps.imports.models import ImportBatch
 from celery import shared_task
+
+from apps.imports.models import ImportBatch
 
 logger = logging.getLogger(__name__)
 

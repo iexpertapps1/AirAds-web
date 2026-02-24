@@ -34,6 +34,11 @@ import uuid as _uuid
 from typing import Optional
 
 import httpx
+from django.conf import settings
+from django.contrib.gis.geos import Point
+from django.db import IntegrityError, transaction
+from django.utils.text import slugify
+
 from apps.audit.utils import log_action
 from apps.geo.models import Area
 from apps.imports.models import ImportBatch
@@ -41,10 +46,6 @@ from apps.tags.models import Tag
 from apps.vendors.models import Vendor
 from core.encryption import encrypt
 from core.ssrf_protection import validate_external_url
-from django.conf import settings
-from django.contrib.gis.geos import Point
-from django.db import IntegrityError, transaction
-from django.utils.text import slugify
 
 logger = logging.getLogger(__name__)
 
