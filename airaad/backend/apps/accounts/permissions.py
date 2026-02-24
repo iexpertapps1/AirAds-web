@@ -101,9 +101,11 @@ class RolePermission(BasePermission):
                 user_id=str(request.user.pk),
                 user_role=user_role,
                 attempted_resource=view.__class__.__name__,
-                ip_address=get_client_ip(request._request)
-                if hasattr(request, "_request")
-                else "unknown",
+                ip_address=(
+                    get_client_ip(request._request)
+                    if hasattr(request, "_request")
+                    else "unknown"
+                ),
             )
 
         return allowed

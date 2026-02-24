@@ -63,7 +63,9 @@ class SecurityHeadersMiddleware:
         response["X-Content-Type-Options"] = "nosniff"
 
         # Prevent caching of authenticated API responses
-        if hasattr(request, "user") and getattr(request.user, "is_authenticated", False):
+        if hasattr(request, "user") and getattr(
+            request.user, "is_authenticated", False
+        ):
             response["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
             response["Pragma"] = "no-cache"
 

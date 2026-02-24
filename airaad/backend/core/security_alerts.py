@@ -20,7 +20,9 @@ from django.utils import timezone
 logger = logging.getLogger("security.alerts")
 
 
-def alert_repeated_login_failures(email: str, ip_address: str, attempt_count: int) -> None:
+def alert_repeated_login_failures(
+    email: str, ip_address: str, attempt_count: int
+) -> None:
     """Fire an alert when login failures exceed the threshold.
 
     Called from accounts/services.py when failed_login_count reaches MAX_FAILED_ATTEMPTS.
@@ -102,7 +104,11 @@ def alert_large_data_export(
 
 
 def alert_unusual_access_pattern(
-    user_id: str, user_email: str, resource: str, access_count: int, window_minutes: int = 5
+    user_id: str,
+    user_email: str,
+    resource: str,
+    access_count: int,
+    window_minutes: int = 5,
 ) -> None:
     """Fire an alert when a user accesses a resource at an unusual rate.
 
