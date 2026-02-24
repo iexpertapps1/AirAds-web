@@ -3,11 +3,11 @@
 # =============================================================================
 # Triggers: when "AirAd CI" workflow completes successfully on staging branch.
 # Code reaches staging ONLY via reviewed PR from develop.
-# Deploys backend + celery to Railway (staging env), frontend to Vercel (preview).
+# Deploys backend to Railway (staging env), frontend to Vercel (preview).
 # Post-deploy smoke test verifies the environment behaves like production.
 #
 # Uses single Railway project (--environment staging) and single Vercel
-# project (preview deploy).
+# project (preview deploy). Celery worker added when Railway service exists.
 # =============================================================================
 
 name: "Deploy → Staging"
@@ -72,29 +72,6 @@ jobs:
         working-directory: airaad/backend
 
   # -------------------------------------------------------------------------
-  # Deploy Celery worker to Railway (staging environment)
-  # -------------------------------------------------------------------------
-  deploy-celery:
-    name: "Celery → Railway Staging"
-    runs-on: ubuntu-latest
-    needs: [deploy-backend]
-    environment:
-      name: staging
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: staging
-
-      - name: Install Railway CLI
-        run: npm i -g @railway/cli
-
-      - name: Deploy Celery worker
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID_CELERY }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --detach
-        working-directory: airaad/backend
-
-  # -------------------------------------------------------------------------
   # Deploy frontend to Vercel (preview deployment)
   # -------------------------------------------------------------------------
   deploy-frontend:
@@ -150,7 +127,7 @@ jobs:
   smoke-test:
     name: "Post-Deploy Smoke Test"
     runs-on: ubuntu-latest
-    needs: [deploy-backend, deploy-celery, deploy-frontend]
+    needs: [deploy-backend, deploy-frontend]
     steps:
       - name: Backend health check
         run: |

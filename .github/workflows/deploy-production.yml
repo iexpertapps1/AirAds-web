@@ -11,7 +11,7 @@
 # - Team notified on EVERY production deploy (success or failure)
 #
 # Uses single Railway project (--environment production) and single Vercel
-# project (--prod deploy).
+# project (--prod deploy). Celery worker added when Railway service exists.
 # =============================================================================
 
 name: "Deploy → Production"
@@ -103,29 +103,6 @@ jobs:
         working-directory: airaad/backend
 
   # -------------------------------------------------------------------------
-  # Deploy Celery worker to Railway (production environment)
-  # -------------------------------------------------------------------------
-  deploy-celery:
-    name: "Celery → Railway Prod"
-    runs-on: ubuntu-latest
-    needs: [deploy-backend]
-    environment:
-      name: production
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Install Railway CLI
-        run: npm i -g @railway/cli
-
-      - name: Deploy Celery worker
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_SERVICE_ID_CELERY }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --detach
-        working-directory: airaad/backend
-
-  # -------------------------------------------------------------------------
   # Deploy frontend to Vercel (production)
   # -------------------------------------------------------------------------
   deploy-frontend:
@@ -177,7 +154,7 @@ jobs:
   verify:
     name: "Post-Deploy Verification"
     runs-on: ubuntu-latest
-    needs: [deploy-backend, deploy-celery, deploy-frontend]
+    needs: [deploy-backend, deploy-frontend]
     outputs:
       result: ${{ steps.final.outputs.result }}
     steps:
@@ -298,13 +275,6 @@ jobs:
           echo "   Failed release: ${{ needs.gate.outputs.release_tag }}"
           railway rollback --service ${{ secrets.RAILWAY_SERVICE_ID_BACKEND }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --yes 2>/dev/null || \
             echo "⚠️ Railway rollback command not available — manual rollback may be needed"
-
-      - name: Rollback Celery worker
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          railway rollback --service ${{ secrets.RAILWAY_SERVICE_ID_CELERY }} --environment ${{ env.RAILWAY_ENVIRONMENT }} --yes 2>/dev/null || \
-            echo "⚠️ Celery rollback — manual intervention may be needed"
 
       - name: Verify rollback health
         run: |
