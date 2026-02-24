@@ -26,7 +26,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Vendor",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 ("business_name", models.CharField(db_index=True, max_length=255)),
                 ("slug", models.SlugField(db_index=True, max_length=280, unique=True)),
                 ("description", models.TextField(blank=True)),
@@ -140,17 +148,20 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="vendor",
-            index=models.Index(fields=["qc_status", "is_deleted"], name="vendor_qc_deleted_idx"),
+            index=models.Index(
+                fields=["qc_status", "is_deleted"], name="vendor_qc_deleted_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="vendor",
-            index=models.Index(fields=["area", "is_deleted"], name="vendor_area_deleted_idx"),
+            index=models.Index(
+                fields=["area", "is_deleted"], name="vendor_area_deleted_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="vendor",
             index=models.Index(fields=["data_source"], name="vendor_data_source_idx"),
         ),
-
         # GiST spatial index on gps_point via RunSQL — NOT models.Index (R1)
         migrations.RunSQL(
             sql="CREATE INDEX IF NOT EXISTS vendor_gps_point_gist ON vendors_vendor USING GiST (gps_point);",

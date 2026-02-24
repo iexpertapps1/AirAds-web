@@ -29,15 +29,48 @@ class AuditLogListView(ListAPIView):
 
     serializer_class = AuditLogSerializer
     pagination_class = StandardResultsPagination
-    permission_classes = [RolePermission.for_roles(AdminRole.SUPER_ADMIN, AdminRole.ANALYST)]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.ANALYST,
+            AdminRole.OPERATIONS_MANAGER,
+        )
+    ]
 
     @extend_schema(
         tags=["Audit"],
         summary="List audit log entries (SUPER_ADMIN, ANALYST)",
         parameters=[
-            OpenApiParameter(name="action", description="Filter by action code", required=False, type=str),
-            OpenApiParameter(name="target_type", description="Filter by target model name", required=False, type=str),
-            OpenApiParameter(name="actor_label", description="Filter by actor email", required=False, type=str),
+            OpenApiParameter(
+                name="action",
+                description="Filter by action code",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="target_type",
+                description="Filter by target model name",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="actor_label",
+                description="Filter by actor email",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="date_from",
+                description="Filter entries on or after this date (YYYY-MM-DD)",
+                required=False,
+                type=str,
+            ),
+            OpenApiParameter(
+                name="date_to",
+                description="Filter entries on or before this date (YYYY-MM-DD)",
+                required=False,
+                type=str,
+            ),
         ],
     )
     def get(self, request, *args, **kwargs):
@@ -70,5 +103,13 @@ class AuditLogListView(ListAPIView):
         actor_label = self.request.query_params.get("actor_label")
         if actor_label:
             qs = qs.filter(actor_label__icontains=actor_label)
+
+        date_from = self.request.query_params.get("date_from")
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+
+        date_to = self.request.query_params.get("date_to")
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
 
         return qs

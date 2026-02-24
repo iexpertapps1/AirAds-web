@@ -21,7 +21,17 @@ from apps.vendors.models import QCStatus, Vendor
 logger = logging.getLogger(__name__)
 
 GPS_DRIFT_THRESHOLD_METRES = 20.0
+
+# DUPLICATE_PROXIMITY_METRES intentionally uses 50m (not the 10m in spec §3.3).
+# Spec §3.3 defines 10m as the threshold for the *claim duplicate detection* workflow
+# (i.e. two vendors claiming the same physical listing). This QA scan is a broader
+# data-quality sweep that catches near-duplicate entries created by different data
+# sources (field teams, CSV imports, scraping) which may have GPS variance of 10–40m
+# for the same physical location. Using 10m here would miss many real duplicates.
+# The claim-specific 10m threshold will be enforced separately in the Phase B
+# vendor claim flow (TASK-B claim-dedup).
 DUPLICATE_PROXIMITY_METRES = 50.0
+
 DUPLICATE_NAME_SIMILARITY_THRESHOLD = 0.85
 MAX_COMPARISONS_PER_VENDOR = 100
 
@@ -53,9 +63,7 @@ def flag_gps_drift(
     if distance > GPS_DRIFT_THRESHOLD_METRES:
         before = {"qc_status": vendor.qc_status}
         vendor.qc_status = QCStatus.NEEDS_REVIEW
-        vendor.qc_notes = (
-            f"GPS drift detected: {distance:.1f}m between stored point and field-confirmed point."
-        )
+        vendor.qc_notes = f"GPS drift detected: {distance:.1f}m between stored point and field-confirmed point."
         vendor.save(update_fields=["qc_status", "qc_notes", "updated_at"])
 
         log_action(

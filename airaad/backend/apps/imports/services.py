@@ -7,7 +7,7 @@ Every mutation calls log_action() (R5).
 """
 
 import logging
-from typing import Any, IO
+from typing import IO, Any
 
 from django.db import transaction
 from django.http import HttpRequest
@@ -109,7 +109,7 @@ def get_batch_or_404(batch_id: str, actor: Any) -> ImportBatch:
     """
     from apps.accounts.models import AdminRole
 
-    qs = ImportBatch.objects.select_related("created_by")
+    qs = ImportBatch.objects.select_related("created_by", "area")
     if getattr(actor, "role", None) != AdminRole.SUPER_ADMIN:
         qs = qs.filter(created_by=actor)
 

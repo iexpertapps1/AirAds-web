@@ -29,7 +29,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="FieldVisit",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 (
                     "vendor",
                     models.ForeignKey(
@@ -67,20 +75,31 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="fieldvisit",
-            index=models.Index(fields=["vendor", "visited_at"], name="fieldvisit_vendor_date_idx"),
+            index=models.Index(
+                fields=["vendor", "visited_at"], name="fieldvisit_vendor_date_idx"
+            ),
         ),
         migrations.AddIndex(
             model_name="fieldvisit",
-            index=models.Index(fields=["agent", "visited_at"], name="fieldvisit_agent_date_idx"),
+            index=models.Index(
+                fields=["agent", "visited_at"], name="fieldvisit_agent_date_idx"
+            ),
         ),
-
         # -----------------------------------------------------------------------
         # FieldPhoto
         # -----------------------------------------------------------------------
         migrations.CreateModel(
             name="FieldPhoto",
             fields=[
-                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
                 (
                     "field_visit",
                     models.ForeignKey(
@@ -113,7 +132,6 @@ class Migration(migrations.Migration):
                 name="fieldphoto_visit_active_idx",
             ),
         ),
-
         # -----------------------------------------------------------------------
         # GiST spatial index on gps_confirmed_point via RunSQL — NOT models.Index
         # -----------------------------------------------------------------------

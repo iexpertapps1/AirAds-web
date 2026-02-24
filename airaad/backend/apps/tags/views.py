@@ -8,6 +8,7 @@ SYSTEM tag enforcement happens in services.py.
 
 import logging
 
+from django.db.models import Count
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -28,14 +29,25 @@ logger = logging.getLogger(__name__)
 class TagListCreateView(APIView):
     """List all tags or create a new one. SYSTEM tags cannot be created via API."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
-    )]
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN,
+        AdminRole.CITY_MANAGER,
+        AdminRole.DATA_ENTRY,
+        AdminRole.DATA_QUALITY_ANALYST,
+    )
 
-    @extend_schema(tags=["Tags"], summary="List tags", responses={200: TagSerializer(many=True)})
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
+
+    @extend_schema(
+        tags=["Tags"], summary="List tags", responses={200: TagSerializer(many=True)}
+    )
     def get(self, request: Request) -> Response:
         """Return all active tags, optionally filtered by tag_type."""
-        qs = Tag.objects.filter(is_active=True)
+        qs = Tag.objects.annotate(usage_count=Count("vendors")).filter(is_active=True)
         tag_type = request.query_params.get("tag_type")
         if tag_type:
             qs = qs.filter(tag_type=tag_type)
@@ -45,7 +57,10 @@ class TagListCreateView(APIView):
         tags=["Tags"],
         summary="Create tag (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY) — SYSTEM type rejected",
         request=CreateTagSerializer,
-        responses={201: TagSerializer, 403: OpenApiResponse(description="SYSTEM tag rejected")},
+        responses={
+            201: TagSerializer,
+            403: OpenApiResponse(description="SYSTEM tag rejected"),
+        },
     )
     def post(self, request: Request) -> Response:
         """Create a new tag. SYSTEM type is rejected."""
@@ -83,24 +98,36 @@ class TagListCreateView(APIView):
 class TagDetailView(APIView):
     """Retrieve, update, or delete a single tag."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.DATA_ENTRY,
+            AdminRole.DATA_QUALITY_ANALYST,
+        )
+    ]
 
     def _get_tag(self, pk: str) -> Tag | None:
         """Fetch tag by PK or return None."""
         try:
-            return Tag.objects.get(id=pk)
+            return Tag.objects.annotate(usage_count=Count("vendors")).get(id=pk)
         except Tag.DoesNotExist:
             return None
 
-    @extend_schema(tags=["Tags"], summary="Get tag detail", responses={200: TagSerializer})
+    @extend_schema(
+        tags=["Tags"], summary="Get tag detail", responses={200: TagSerializer}
+    )
     def get(self, request: Request, pk: str) -> Response:
         """Return a single tag."""
         tag = self._get_tag(pk)
         if tag is None:
             return Response(
-                {"success": False, "data": None, "message": "Tag not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Tag not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         return success_response(data=TagSerializer(tag).data)
@@ -116,7 +143,12 @@ class TagDetailView(APIView):
         tag = self._get_tag(pk)
         if tag is None:
             return Response(
-                {"success": False, "data": None, "message": "Tag not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Tag not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         serializer = UpdateTagSerializer(data=request.data, partial=True)
@@ -150,7 +182,12 @@ class TagDetailView(APIView):
         tag = self._get_tag(pk)
         if tag is None:
             return Response(
-                {"success": False, "data": None, "message": "Tag not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Tag not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         try:

@@ -54,7 +54,10 @@ class Migration(migrations.Migration):
                 ("target_id", models.UUIDField(blank=True, null=True)),
                 ("before_state", models.JSONField(blank=True, default=dict)),
                 ("after_state", models.JSONField(blank=True, default=dict)),
-                ("request_id", models.CharField(blank=True, db_index=True, max_length=36)),
+                (
+                    "request_id",
+                    models.CharField(blank=True, db_index=True, max_length=36),
+                ),
                 (
                     "ip_address",
                     models.GenericIPAddressField(blank=True, null=True),

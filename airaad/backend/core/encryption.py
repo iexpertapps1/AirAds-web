@@ -22,6 +22,9 @@ class EncryptionError(Exception):
     """Raised when encryption or decryption fails."""
 
 
+_WEAK_DEV_KEY = base64.b64decode("YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=")
+
+
 def _get_key() -> bytes:
     """Decode the AES-256-GCM key from settings.
 
@@ -29,17 +32,30 @@ def _get_key() -> bytes:
         32-byte key as raw bytes.
 
     Raises:
-        EncryptionError: If ENCRYPTION_KEY is missing or not valid base64.
+        EncryptionError: If ENCRYPTION_KEY is missing, not valid base64,
+            or is the known-weak development placeholder in a non-DEBUG env.
     """
     try:
         key = base64.b64decode(settings.ENCRYPTION_KEY)
     except Exception as e:
-        raise EncryptionError(f"Invalid ENCRYPTION_KEY — must be base64-encoded 32 bytes: {e}") from e
+        raise EncryptionError(
+            f"Invalid ENCRYPTION_KEY — must be base64-encoded 32 bytes: {e}"
+        ) from e
 
     if len(key) != 32:
         raise EncryptionError(
             f"ENCRYPTION_KEY must decode to exactly 32 bytes, got {len(key)}"
         )
+
+    _in_dev_or_test = getattr(settings, "DEBUG", False) or getattr(
+        settings, "TESTING", False
+    )
+    if key == _WEAK_DEV_KEY and not _in_dev_or_test:
+        raise EncryptionError(
+            "ENCRYPTION_KEY is the known-weak development placeholder. "
+            "Set a strong random key in production."
+        )
+
     return key
 
 

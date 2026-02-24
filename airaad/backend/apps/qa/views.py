@@ -23,9 +23,13 @@ logger = logging.getLogger(__name__)
 class QADashboardView(APIView):
     """Return vendors flagged as NEEDS_REVIEW. QA_REVIEWER and above."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.QA_REVIEWER,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.QA_REVIEWER,
+        )
+    ]
 
     @extend_schema(
         tags=["QA"],
@@ -44,8 +48,7 @@ class QADashboardView(APIView):
         from apps.vendors.models import QCStatus, Vendor
 
         flagged = (
-            Vendor.objects
-            .filter(qc_status=QCStatus.NEEDS_REVIEW)
+            Vendor.objects.filter(qc_status=QCStatus.NEEDS_REVIEW)
             .values("id", "business_name", "qc_notes", "updated_at")
             .order_by("-updated_at")
         )

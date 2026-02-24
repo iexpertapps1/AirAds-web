@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class ImportBatchSerializer(serializers.ModelSerializer):
     """Read serializer for ImportBatch."""
 
-    created_by_email = serializers.CharField(source="created_by.email", read_only=True, default="")
+    created_by_email = serializers.CharField(
+        source="created_by.email", read_only=True, default=""
+    )
     uploaded_by_email = serializers.SerializerMethodField()
     area_name = serializers.SerializerMethodField()
     file_name = serializers.SerializerMethodField()
@@ -28,12 +30,25 @@ class ImportBatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = ImportBatch
         fields = [
-            "id", "import_type", "file_key", "file_name", "status",
-            "total_rows", "processed_rows", "error_count", "error_log",
-            "vendors_created", "vendors_failed",
-            "search_query", "radius_m", "area_name",
-            "created_by", "created_by_email", "uploaded_by_email",
-            "created_at", "updated_at",
+            "id",
+            "import_type",
+            "file_key",
+            "file_name",
+            "status",
+            "total_rows",
+            "processed_rows",
+            "error_count",
+            "error_log",
+            "vendors_created",
+            "vendors_failed",
+            "search_query",
+            "radius_m",
+            "area_name",
+            "created_by",
+            "created_by_email",
+            "uploaded_by_email",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = fields
 
@@ -47,10 +62,14 @@ class ImportBatchSerializer(serializers.ModelSerializer):
         """Return a human-readable file name for the import batch."""
         if obj.file_key:
             # Extract basename from S3 key for CSV imports
-            return obj.file_key.rsplit("/", 1)[-1] if "/" in obj.file_key else obj.file_key
+            return (
+                obj.file_key.rsplit("/", 1)[-1] if "/" in obj.file_key else obj.file_key
+            )
         area_name = self.get_area_name(obj)
         if obj.import_type == "GOOGLE_PLACES_ENHANCED":
-            return f"Enhanced GP — {area_name}" if area_name else "Enhanced Google Places"
+            return (
+                f"Enhanced GP — {area_name}" if area_name else "Enhanced Google Places"
+            )
         if obj.import_type == "GOOGLE_PLACES":
             return f"Google Places — {area_name}" if area_name else "Google Places"
         return "CSV Import"

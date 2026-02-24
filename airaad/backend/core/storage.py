@@ -76,7 +76,9 @@ def generate_presigned_url(key: str, expiry: int = 3600) -> str:
             "Failed to generate presigned URL",
             extra={"key": key, "error": str(e)},
         )
-        raise StorageError(f"Failed to generate presigned URL for key '{key}': {e}") from e
+        raise StorageError(
+            f"Failed to generate presigned URL for key '{key}': {e}"
+        ) from e
 
 
 def upload_file_to_s3(file: IO[bytes], prefix: str) -> str:

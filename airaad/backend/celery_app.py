@@ -28,6 +28,7 @@ def _task_exists(module: str, name: str) -> bool:
         True if the attribute exists in the module, False otherwise.
     """
     import importlib
+
     try:
         mod = importlib.import_module(module)
         return callable(getattr(mod, name, None))

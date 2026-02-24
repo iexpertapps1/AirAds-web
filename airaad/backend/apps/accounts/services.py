@@ -75,7 +75,9 @@ def authenticate_user(
     try:
         user = AdminUser.objects.get(email=email)
     except AdminUser.DoesNotExist:
-        logger.warning("Login attempt for unknown email", extra={"email": email, "ip": ip_address})
+        logger.warning(
+            "Login attempt for unknown email", extra={"email": email, "ip": ip_address}
+        )
         raise ValueError("Invalid credentials")
 
     # Step 2 — Lockout check BEFORE password verification (R3 / timing safety)
@@ -90,19 +92,27 @@ def authenticate_user(
             target_obj=user,
             request=request,
             before={},
-            after={"email": email, "ip": ip_address, "retry_after_seconds": retry_after},
+            after={
+                "email": email,
+                "ip": ip_address,
+                "retry_after_seconds": retry_after,
+            },
         )
         raise ValueError(f"Account locked. Retry after {retry_after} seconds.")
 
     # Step 3 — Password verification
-    authenticated_user = authenticate(request=request, username=email, password=password)
+    authenticated_user = authenticate(
+        request=request, username=email, password=password
+    )
 
     if authenticated_user is None:
         # Increment failure counter
         user.failed_login_count += 1
 
         if user.failed_login_count >= MAX_FAILED_ATTEMPTS:
-            user.locked_until = timezone.now() + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+            user.locked_until = timezone.now() + timedelta(
+                minutes=LOCKOUT_DURATION_MINUTES
+            )
             log_action(
                 action="AUTH_ACCOUNT_LOCKED",
                 actor=None,
@@ -146,7 +156,12 @@ def authenticate_user(
     authenticated_user.last_login_ip = ip_address
     authenticated_user.must_change_password = False
     authenticated_user.save(
-        update_fields=["failed_login_count", "locked_until", "last_login_ip", "must_change_password"]
+        update_fields=[
+            "failed_login_count",
+            "locked_until",
+            "last_login_ip",
+            "must_change_password",
+        ]
     )
 
     # Step 6 — Generate JWT tokens

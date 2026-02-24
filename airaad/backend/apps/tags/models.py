@@ -55,6 +55,14 @@ class Tag(models.Model):
     display_order = models.PositiveIntegerField(default=0, db_index=True)
     icon_name = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Optional expiry datetime for PROMOTION tags (spec §4.3). "
+        "Null means the tag never auto-expires. "
+        "expire_promotion_tags Celery task deactivates tags past this datetime.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -62,7 +70,9 @@ class Tag(models.Model):
         verbose_name_plural = "Tags"
         ordering = ["tag_type", "display_order", "name"]
         indexes = [
-            models.Index(fields=["tag_type", "is_active"], name="tags_tag_type_active_idx"),
+            models.Index(
+                fields=["tag_type", "is_active"], name="tags_tag_type_active_idx"
+            ),
         ]
 
     def __str__(self) -> str:

@@ -193,3 +193,138 @@ class TestProfileView:
         url = reverse("auth-profile")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_profile_returns_role(self, auth_client, super_admin_user):
+        """Profile response includes the user's role."""
+        url = reverse("auth-profile")
+        response = auth_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"]["role"] == "SUPER_ADMIN"
+
+
+@pytest.mark.django_db
+class TestTokenRefreshView:
+    """Tests for POST /api/v1/auth/token/refresh/."""
+
+    def test_refresh_returns_new_access_token(self, api_client, super_admin_user):
+        """Valid refresh token returns a new access token."""
+        login_url = reverse("auth-login")
+        login_resp = api_client.post(
+            login_url,
+            {"email": "superadmin@test.airaad.com", "password": "TestPass@123!"},
+            format="json",
+        )
+        assert login_resp.status_code == status.HTTP_200_OK
+        refresh_token = login_resp.data["data"]["tokens"]["refresh"]
+
+        refresh_url = reverse("auth-refresh")
+        response = api_client.post(refresh_url, {"refresh": refresh_token}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+
+    def test_refresh_with_invalid_token_returns_401(self, api_client):
+        """Invalid refresh token returns 401."""
+        refresh_url = reverse("auth-refresh")
+        response = api_client.post(refresh_url, {"refresh": "invalid.token.here"}, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_refresh_with_missing_token_returns_400(self, api_client):
+        """Missing refresh token returns 400."""
+        refresh_url = reverse("auth-refresh")
+        response = api_client.post(refresh_url, {}, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestLogoutView:
+    """Tests for POST /api/v1/auth/logout/."""
+
+    def test_logout_blacklists_refresh_token(self, api_client, super_admin_user):
+        """Logout blacklists the refresh token — subsequent refresh returns 401."""
+        login_url = reverse("auth-login")
+        login_resp = api_client.post(
+            login_url,
+            {"email": "superadmin@test.airaad.com", "password": "TestPass@123!"},
+            format="json",
+        )
+        tokens = login_resp.data["data"]["tokens"]
+        access_token = tokens["access"]
+        refresh_token = tokens["refresh"]
+
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        logout_url = reverse("auth-logout")
+        logout_resp = api_client.post(logout_url, {"refresh": refresh_token}, format="json")
+        assert logout_resp.status_code in (status.HTTP_200_OK, status.HTTP_204_NO_CONTENT)
+
+        # Refresh token must now be blacklisted
+        api_client.credentials()
+        reuse_resp = api_client.post(
+            reverse("auth-refresh"), {"refresh": refresh_token}, format="json"
+        )
+        assert reuse_resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_logout_unauthenticated_returns_401(self, api_client):
+        """Logout without authentication returns 401."""
+        api_client.credentials()
+        logout_url = reverse("auth-logout")
+        response = api_client.post(logout_url, {"refresh": "sometoken"}, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+class TestUserListView:
+    """Tests for GET /api/v1/auth/users/."""
+
+    def test_super_admin_can_list_users(self, auth_client, super_admin_user, data_entry_user):
+        """SUPER_ADMIN can list all users."""
+        url = reverse("auth-user-list")
+        response = auth_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        emails = [u["email"] for u in response.data["data"]]
+        assert "superadmin@test.airaad.com" in emails
+
+    def test_data_entry_cannot_list_users(self, data_entry_client):
+        """DATA_ENTRY cannot list users — returns 403."""
+        url = reverse("auth-user-list")
+        response = data_entry_client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_unauthenticated_cannot_list_users(self, api_client):
+        """Unauthenticated request returns 401."""
+        url = reverse("auth-user-list")
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.django_db
+class TestUserUpdateView:
+    """Tests for PATCH /api/v1/auth/users/<id>/."""
+
+    def test_super_admin_can_deactivate_user(self, auth_client, data_entry_user):
+        """SUPER_ADMIN can deactivate a user by setting is_active=False."""
+        url = reverse("auth-user-detail", kwargs={"pk": str(data_entry_user.id)})
+        response = auth_client.patch(url, {"is_active": False}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        data_entry_user.refresh_from_db()
+        assert data_entry_user.is_active is False
+
+    def test_super_admin_can_update_user_role(self, auth_client, data_entry_user):
+        """SUPER_ADMIN can change a user's role."""
+        url = reverse("auth-user-detail", kwargs={"pk": str(data_entry_user.id)})
+        response = auth_client.patch(url, {"role": "QA_REVIEWER"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        data_entry_user.refresh_from_db()
+        assert data_entry_user.role == "QA_REVIEWER"
+
+    def test_data_entry_cannot_update_users(self, data_entry_client, super_admin_user):
+        """DATA_ENTRY cannot update other users."""
+        url = reverse("auth-user-detail", kwargs={"pk": str(super_admin_user.id)})
+        response = data_entry_client.patch(url, {"is_active": False}, format="json")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_nonexistent_user_returns_404(self, auth_client):
+        """PATCH on non-existent user UUID returns 404."""
+        import uuid
+        url = reverse("auth-user-detail", kwargs={"pk": str(uuid.uuid4())})
+        response = auth_client.patch(url, {"is_active": False}, format="json")
+        assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -19,9 +19,14 @@ logger = logging.getLogger(__name__)
 def get_client_ip(request: HttpRequest) -> str:
     """Extract the real client IP address from the request.
 
-    Checks the ``X-Forwarded-For`` header first (set by nginx reverse proxy),
-    then falls back to ``REMOTE_ADDR``. Takes the first (leftmost) IP from
-    ``X-Forwarded-For`` which is the original client address.
+    Uses ``REMOTE_ADDR`` as the authoritative source when behind a trusted
+    reverse proxy (nginx). If ``NUM_PROXIES`` is set in Django settings
+    (default 1), the rightmost non-proxy IP in ``X-Forwarded-For`` is used,
+    which cannot be spoofed by the client.
+
+    Taking the *leftmost* XFF entry is insecure because clients can inject
+    arbitrary values there. The *rightmost* entry is appended by the trusted
+    proxy and is reliable.
 
     Args:
         request: The incoming Django HTTP request.
@@ -34,10 +39,18 @@ def get_client_ip(request: HttpRequest) -> str:
         >>> isinstance(ip, str)
         True
     """
+    from django.conf import settings
+
+    num_proxies: int = getattr(settings, "NUM_PROXIES", 1)
+
     x_forwarded_for: str | None = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        # X-Forwarded-For: client, proxy1, proxy2 — take the leftmost
-        ip = x_forwarded_for.split(",")[0].strip()
+    if x_forwarded_for and num_proxies > 0:
+        # X-Forwarded-For: client, proxy1, ..., trusted-proxy
+        # Take the entry num_proxies positions from the right — that is the
+        # first IP added by the trusted proxy, not client-controlled.
+        ips = [ip.strip() for ip in x_forwarded_for.split(",")]
+        index = max(len(ips) - num_proxies, 0)
+        ip = ips[index]
         return ip if ip else "unknown"
 
     return request.META.get("REMOTE_ADDR", "unknown")

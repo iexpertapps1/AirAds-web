@@ -21,13 +21,15 @@ from django.db import transaction
 logger = logging.getLogger(__name__)
 
 # Required CSV columns — must be present in header row
-REQUIRED_COLUMNS: frozenset[str] = frozenset({
-    "business_name",
-    "longitude",
-    "latitude",
-    "city_slug",
-    "area_slug",
-})
+REQUIRED_COLUMNS: frozenset[str] = frozenset(
+    {
+        "business_name",
+        "longitude",
+        "latitude",
+        "city_slug",
+        "area_slug",
+    }
+)
 
 
 def _validate_row(row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
@@ -44,42 +46,69 @@ def _validate_row(row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
 
     business_name = row.get("business_name", "").strip()
     if not business_name:
-        errors.append({"row": row_num, "field": "business_name", "msg": "business_name is required"})
+        errors.append(
+            {
+                "row": row_num,
+                "field": "business_name",
+                "msg": "business_name is required",
+            }
+        )
 
     for coord_field in ("longitude", "latitude"):
         raw = row.get(coord_field, "").strip()
         if not raw:
-            errors.append({"row": row_num, "field": coord_field, "msg": f"{coord_field} is required"})
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": coord_field,
+                    "msg": f"{coord_field} is required",
+                }
+            )
         else:
             try:
                 val = float(raw)
             except ValueError:
-                errors.append({
-                    "row": row_num, "field": coord_field,
-                    "msg": f"{coord_field} must be a number, got '{raw}'"
-                })
+                errors.append(
+                    {
+                        "row": row_num,
+                        "field": coord_field,
+                        "msg": f"{coord_field} must be a number, got '{raw}'",
+                    }
+                )
             else:
                 # Reject null-island and out-of-range coordinates (spec §8.1 GPS validation)
                 if coord_field == "longitude" and not (-180.0 < val < 180.0):
-                    errors.append({
-                        "row": row_num, "field": coord_field,
-                        "msg": f"longitude {val} is out of valid range (-180, 180)"
-                    })
-                elif coord_field == "latitude" and not (-90.0 < val < 90.0):
-                    errors.append({
-                        "row": row_num, "field": coord_field,
-                        "msg": f"latitude {val} is out of valid range (-90, 90)"
-                    })
-                elif val == 0.0:
-                    msg = (f"{coord_field} is 0.0 — likely a "
-                           "null-island placeholder, not a real GPS coordinate")
                     errors.append(
-                        {"row": row_num, "field": coord_field, "msg": msg}
+                        {
+                            "row": row_num,
+                            "field": coord_field,
+                            "msg": f"longitude {val} is out of valid range (-180, 180)",
+                        }
                     )
+                elif coord_field == "latitude" and not (-90.0 < val < 90.0):
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "field": coord_field,
+                            "msg": f"latitude {val} is out of valid range (-90, 90)",
+                        }
+                    )
+                elif val == 0.0:
+                    msg = (
+                        f"{coord_field} is 0.0 — likely a "
+                        "null-island placeholder, not a real GPS coordinate"
+                    )
+                    errors.append({"row": row_num, "field": coord_field, "msg": msg})
 
     for slug_field in ("city_slug", "area_slug"):
         if not row.get(slug_field, "").strip():
-            errors.append({"row": row_num, "field": slug_field, "msg": f"{slug_field} is required"})
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": slug_field,
+                    "msg": f"{slug_field} is required",
+                }
+            )
 
     return errors
 
@@ -99,10 +128,11 @@ def _process_row(row: dict[str, str], row_num: int, batch: Any) -> bool:
     Returns:
         True if the row was processed successfully, False on error.
     """
+    from django.utils.text import slugify
+
     from apps.geo.models import Area, City
     from apps.vendors.models import Vendor
     from apps.vendors.services import create_vendor
-    from django.utils.text import slugify
 
     try:
         city = City.objects.get(slug=row["city_slug"].strip())
@@ -167,7 +197,10 @@ def process_import_batch(self: Any, batch_id: str) -> None:
 
     # --- Idempotency guard ---
     if batch.status == ImportStatus.PROCESSING:
-        logger.warning("Batch already processing — idempotency guard hit", extra={"batch_id": batch_id})
+        logger.warning(
+            "Batch already processing — idempotency guard hit",
+            extra={"batch_id": batch_id},
+        )
         return
 
     # --- Mark as PROCESSING ---
@@ -194,7 +227,7 @@ def process_import_batch(self: Any, batch_id: str) -> None:
         )
         batch.status = ImportStatus.FAILED
         batch.save(update_fields=["status", "updated_at"])
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        raise self.retry(exc=exc, countdown=2**self.request.retries * 60)
 
     # --- Parse and process CSV ---
     processed = 0
@@ -211,7 +244,9 @@ def process_import_batch(self: Any, batch_id: str) -> None:
 
             missing_cols = REQUIRED_COLUMNS - set(reader.fieldnames)
             if missing_cols:
-                raise ValueError(f"CSV missing required columns: {sorted(missing_cols)}")
+                raise ValueError(
+                    f"CSV missing required columns: {sorted(missing_cols)}"
+                )
 
             row_num = 0
             for row_num, row in enumerate(reader, start=1):
@@ -227,24 +262,34 @@ def process_import_batch(self: Any, batch_id: str) -> None:
                 try:
                     success = _process_row(row, row_num, batch)
                     if not success:
-                        append_error_log(batch, {
-                            "row": row_num,
-                            "field": "city_slug/area_slug",
-                            "msg": f"City '{row.get('city_slug')}' or Area '{row.get('area_slug')}' not found",
-                        })
+                        append_error_log(
+                            batch,
+                            {
+                                "row": row_num,
+                                "field": "city_slug/area_slug",
+                                "msg": f"City '{row.get('city_slug')}' or Area '{row.get('area_slug')}' not found",
+                            },
+                        )
                         errors_total += 1
                     else:
                         processed += 1
                 except Exception as row_exc:
-                    append_error_log(batch, {
-                        "row": row_num,
-                        "field": "__row__",
-                        "msg": str(row_exc),
-                    })
+                    append_error_log(
+                        batch,
+                        {
+                            "row": row_num,
+                            "field": "__row__",
+                            "msg": str(row_exc),
+                        },
+                    )
                     errors_total += 1
                     logger.warning(
                         "Row processing error",
-                        extra={"batch_id": batch_id, "row": row_num, "error": str(row_exc)},
+                        extra={
+                            "batch_id": batch_id,
+                            "row": row_num,
+                            "error": str(row_exc),
+                        },
                     )
 
                 # Update progress every 100 rows
@@ -267,7 +312,15 @@ def process_import_batch(self: Any, batch_id: str) -> None:
     batch.total_rows = row_num
     batch.processed_rows = processed
     batch.error_count = errors_total
-    batch.save(update_fields=["status", "total_rows", "processed_rows", "error_count", "updated_at"])
+    batch.save(
+        update_fields=[
+            "status",
+            "total_rows",
+            "processed_rows",
+            "error_count",
+            "updated_at",
+        ]
+    )
 
     logger.info(
         "Import batch complete",

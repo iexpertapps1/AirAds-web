@@ -45,10 +45,9 @@ def weekly_gps_drift_scan(self: Any) -> None:
     offset = 0
     while True:
         vendors = list(
-            Vendor.objects
-            .filter(qc_status=QCStatus.APPROVED)
+            Vendor.objects.filter(qc_status=QCStatus.APPROVED)
             .select_related("city", "area")
-            .order_by("id")[offset:offset + _BATCH_SIZE]
+            .order_by("id")[offset : offset + _BATCH_SIZE]
         )
         if not vendors:
             break
@@ -56,8 +55,9 @@ def weekly_gps_drift_scan(self: Any) -> None:
         for vendor in vendors:
             # Get the most recent field visit with a confirmed GPS point
             latest_visit = (
-                FieldVisit.objects
-                .filter(vendor=vendor, gps_confirmed_point__isnull=False)
+                FieldVisit.objects.filter(
+                    vendor=vendor, gps_confirmed_point__isnull=False
+                )
                 .order_by("-created_at")
                 .first()
             )
@@ -71,7 +71,7 @@ def weekly_gps_drift_scan(self: Any) -> None:
                 was_flagged = flag_gps_drift(
                     vendor=vendor,
                     field_visit_point=latest_visit.gps_confirmed_point,
-                    actor=None,   # Celery context — no HTTP actor
+                    actor=None,  # Celery context — no HTTP actor
                     request=None,
                 )
                 if was_flagged:
@@ -112,11 +112,10 @@ def daily_duplicate_scan(self: Any) -> None:
     offset = 0
     while True:
         vendors = list(
-            Vendor.objects
-            .filter(is_deleted=False)
+            Vendor.objects.filter(is_deleted=False)
             .exclude(qc_status=QCStatus.NEEDS_REVIEW)
             .select_related("city", "area")
-            .order_by("id")[offset:offset + _BATCH_SIZE]
+            .order_by("id")[offset : offset + _BATCH_SIZE]
         )
         if not vendors:
             break
@@ -127,7 +126,7 @@ def daily_duplicate_scan(self: Any) -> None:
             try:
                 flagged_ids = run_duplicate_scan_for_vendor(
                     vendor=vendor,
-                    actor=None,   # Celery context — no HTTP actor
+                    actor=None,  # Celery context — no HTTP actor
                     request=None,
                 )
                 total_flagged += len(flagged_ids)

@@ -328,6 +328,12 @@ class TestDailyDuplicateScan:
         assert vendor_a.qc_status == QCStatus.APPROVED
         assert vendor_b.qc_status == QCStatus.APPROVED
 
+    def test_no_vendors_does_not_raise(self) -> None:
+        """daily_duplicate_scan with zero vendors completes without error."""
+        from apps.vendors.models import Vendor
+        Vendor.objects.all().delete()
+        daily_duplicate_scan()  # Must not raise
+
     def test_dissimilar_names_nearby_not_flagged(self, city, area) -> None:
         """Two vendors within 50m with <85% name similarity → not flagged."""
         vendor_a = VendorFactory(

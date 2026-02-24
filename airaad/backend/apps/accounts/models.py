@@ -8,18 +8,24 @@ All auth events are logged to AuditLog from services.py, never via signals.
 
 import uuid
 
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.db import models
 from django.utils import timezone
 
 
 class AdminRole(models.TextChoices):
-    """Seven RBAC roles for the AirAd admin portal.
+    """Eleven RBAC roles for the AirAd admin portal.
 
-    These values must match the RBAC matrix exactly.
+    Phase-A data-collection roles (original 7) plus 4 governance roles
+    added per spec §2.1 (Admin Operations & Governance Document).
     RolePermission.for_roles() is the ONLY mechanism to enforce them (R3).
     """
 
+    # Phase-A data-collection roles
     SUPER_ADMIN = "SUPER_ADMIN", "Super Admin"
     CITY_MANAGER = "CITY_MANAGER", "City Manager"
     DATA_ENTRY = "DATA_ENTRY", "Data Entry"
@@ -27,6 +33,12 @@ class AdminRole(models.TextChoices):
     FIELD_AGENT = "FIELD_AGENT", "Field Agent"
     ANALYST = "ANALYST", "Analyst"
     SUPPORT = "SUPPORT", "Support"
+
+    # Governance roles — spec §2.1 (Admin Operations & Governance Document)
+    OPERATIONS_MANAGER = "OPERATIONS_MANAGER", "Operations Manager"
+    CONTENT_MODERATOR = "CONTENT_MODERATOR", "Content Moderator"
+    DATA_QUALITY_ANALYST = "DATA_QUALITY_ANALYST", "Data Quality Analyst"
+    ANALYTICS_OBSERVER = "ANALYTICS_OBSERVER", "Analytics Observer"
 
 
 class AdminUserManager(BaseUserManager["AdminUser"]):
@@ -125,7 +137,7 @@ class AdminUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, db_index=True)
     full_name = models.CharField(max_length=255)
     role = models.CharField(
-        max_length=20,
+        max_length=25,
         choices=AdminRole.choices,
         default=AdminRole.DATA_ENTRY,
         db_index=True,
@@ -136,6 +148,12 @@ class AdminUser(AbstractBaseUser, PermissionsMixin):
     # Lockout tracking
     failed_login_count = models.PositiveIntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
+
+    # Password management
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="Set True on creation via temp password. Cleared on first successful login.",
+    )
 
     # Audit fields
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)

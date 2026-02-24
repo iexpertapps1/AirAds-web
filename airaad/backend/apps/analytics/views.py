@@ -23,13 +23,22 @@ logger = logging.getLogger(__name__)
 
 
 class PlatformKPIView(APIView):
-    """Return basic platform KPI counts. SUPER_ADMIN and ANALYST only."""
+    """Return basic platform KPI counts. SUPER_ADMIN, CITY_MANAGER and ANALYST only."""
 
-    permission_classes = [RolePermission.for_roles(AdminRole.SUPER_ADMIN, AdminRole.ANALYST)]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.ANALYST,
+            AdminRole.OPERATIONS_MANAGER,
+            AdminRole.ANALYTICS_OBSERVER,
+            AdminRole.DATA_QUALITY_ANALYST,
+        )
+    ]
 
     @extend_schema(
         tags=["Analytics"],
-        summary="Platform KPI summary (SUPER_ADMIN, ANALYST)",
+        summary="Platform KPI summary (SUPER_ADMIN, CITY_MANAGER, ANALYST)",
         responses={200: {"type": "object"}},
     )
     def get(self, request: Request) -> Response:

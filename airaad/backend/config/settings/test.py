@@ -3,8 +3,8 @@ AirAd Backend — Test Settings
 CELERY_TASK_ALWAYS_EAGER=True, fast hashing, dummy AWS vars, in-memory cache.
 """
 
-from .development import *  # noqa: F401, F403
 from .base import env  # noqa: F811 — explicit import to satisfy flake8 F405
+from .development import *  # noqa: F401, F403
 
 # ---------------------------------------------------------------------------
 # Celery — run tasks synchronously in tests (no broker needed)

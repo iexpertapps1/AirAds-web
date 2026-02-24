@@ -7,7 +7,7 @@ FieldPhoto.s3_key stores S3 key only — presigned URL generated on read.
 """
 
 import logging
-from typing import Any, IO
+from typing import IO, Any
 
 from django.contrib.gis.geos import Point
 from django.db import transaction

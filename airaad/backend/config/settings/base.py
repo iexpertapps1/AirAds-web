@@ -26,6 +26,14 @@ ALLOWED_HOSTS: list[str] = env.list("ALLOWED_HOSTS", default=["localhost", "127.
 # AES-256-GCM encryption key — 32 bytes, base64-encoded (R2)
 ENCRYPTION_KEY: str = env("ENCRYPTION_KEY")
 
+# Number of trusted reverse proxies in front of the app (used by get_client_ip).
+# Set to 0 to use REMOTE_ADDR directly (no proxy). Default: 1 (single nginx).
+NUM_PROXIES: int = env.int("NUM_PROXIES", default=1)
+
+# CORS — allowed origins. Override in environment-specific settings.
+# Production: set CORS_ALLOWED_ORIGINS via env. Development: CORS_ALLOW_ALL_ORIGINS=True.
+CORS_ALLOWED_ORIGINS: list[str] = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
 # ---------------------------------------------------------------------------
 # Application definition
 # ---------------------------------------------------------------------------
@@ -46,6 +54,7 @@ THIRD_PARTY_APPS: list[str] = [
     "drf_spectacular",
     "django_celery_beat",
     "storages",
+    "corsheaders",
 ]
 
 LOCAL_APPS: list[str] = [
@@ -60,6 +69,7 @@ LOCAL_APPS: list[str] = [
     "apps.analytics",
     "apps.subscriptions",
     "apps.discovery",
+    "apps.governance",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -69,8 +79,9 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # RequestIDMiddleware MUST be index 0 — security and tracing critical.
 # ---------------------------------------------------------------------------
 MIDDLEWARE: list[str] = [
-    "core.middleware.RequestIDMiddleware",                          # index 0 — FIRST (R3 tracing)
+    "core.middleware.RequestIDMiddleware",  # index 0 — FIRST (R3 tracing)
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # must be before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -106,7 +117,9 @@ ASGI_APPLICATION = "config.asgi.application"
 # ---------------------------------------------------------------------------
 DATABASES = {
     "default": {
-        **env.db("DATABASE_URL", default="postgis://airaad:airaad@localhost:5432/airaad_db"),
+        **env.db(
+            "DATABASE_URL", default="postgis://airaad:airaad@localhost:5432/airaad_db"
+        ),
         "ENGINE": "django.contrib.gis.db.backends.postgis",
         "CONN_MAX_AGE": 60,
         "OPTIONS": {
@@ -131,7 +144,9 @@ CACHES = {
 AUTH_USER_MODEL = "accounts.AdminUser"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -195,7 +210,9 @@ SPECTACULAR_SETTINGS = {
 # Celery
 # ---------------------------------------------------------------------------
 CELERY_BROKER_URL: str = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
-CELERY_RESULT_BACKEND: str = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND: str = env(
+    "CELERY_RESULT_BACKEND", default="redis://localhost:6379/0"
+)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -216,6 +233,11 @@ AWS_S3_PRESIGNED_URL_EXPIRY: int = env.int("AWS_S3_PRESIGNED_URL_EXPIRY", defaul
 AWS_DEFAULT_ACL = None  # Never public — presigned URLs only
 AWS_S3_FILE_OVERWRITE = False
 AWS_QUERYSTRING_AUTH = True  # Presigned URLs
+
+# ---------------------------------------------------------------------------
+# Google Places API
+# ---------------------------------------------------------------------------
+GOOGLE_PLACES_API_KEY = env("GOOGLE_PLACES_API_KEY", default="")
 
 # ---------------------------------------------------------------------------
 # Internationalization

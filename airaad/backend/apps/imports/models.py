@@ -46,8 +46,34 @@ class ImportBatch(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Import type and Google Places fields
+    import_type = models.CharField(
+        max_length=30,
+        choices=[
+            ("CSV", "CSV Upload"),
+            ("GOOGLE_PLACES", "Google Places API"),
+            ("GOOGLE_PLACES_ENHANCED", "Google Places Enhanced"),
+        ],
+        default="CSV",
+        db_index=True,
+    )
+    area = models.ForeignKey(
+        "geo.Area",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="google_places_batches",
+    )
+    search_query = models.CharField(max_length=255, blank=True, default="")
+    radius_m = models.PositiveIntegerField(null=True, blank=True)
+    search_lat = models.FloatField(null=True, blank=True)
+    search_lng = models.FloatField(null=True, blank=True)
+
+    # Original CSV field (kept for backward compatibility)
     file_key = models.CharField(
         max_length=500,
+        blank=True,  # Made optional for Google Places imports
         help_text="S3 object key ONLY — never a public URL.",
     )
     status = models.CharField(
@@ -64,10 +90,25 @@ class ImportBatch(models.Model):
         blank=True,
         help_text="Per-row error list. Capped at 1000 entries by append_error_log() in services.py.",
     )
+    # Metadata for enhanced imports (country/city/area/category selection context)
+    metadata = models.JSONField(
+        default=dict,  # callable — NEVER default={}
+        blank=True,
+        help_text="Arbitrary metadata dict for import context (enhanced Google Places params, etc.).",
+    )
+    # Checkpoint: place_ids already processed — enables resume after crash
+    processed_place_ids = models.JSONField(
+        default=list,  # callable — NEVER default=[]
+        blank=True,
+        help_text="List of google_place_ids already processed in this batch. Enables crash-resume.",
+    )
     created_by = models.ForeignKey(
         "accounts.AdminUser",
+        null=True,
+        blank=True,
         on_delete=models.PROTECT,
         related_name="import_batches",
+        help_text="System imports (Google Places) have created_by=None",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -77,7 +118,9 @@ class ImportBatch(models.Model):
         verbose_name_plural = "Import Batches"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["status", "created_by"], name="import_status_creator_idx"),
+            models.Index(
+                fields=["status", "created_by"], name="import_status_creator_idx"
+            ),
         ]
 
     def __str__(self) -> str:

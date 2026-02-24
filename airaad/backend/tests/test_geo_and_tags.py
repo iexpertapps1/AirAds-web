@@ -190,6 +190,36 @@ class TestDeleteTag:
 
 
 # ---------------------------------------------------------------------------
+# Tags — usage_count annotation
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestTagUsageCount:
+    def test_usage_count_zero_for_unassigned_tag(self) -> None:
+        """Tag with no vendors assigned returns usage_count=0."""
+        from django.db.models import Count
+
+        tag = TagFactory(tag_type=TagType.CATEGORY)
+        annotated = Tag.objects.annotate(usage_count=Count("vendors")).get(id=tag.id)
+        assert annotated.usage_count == 0
+
+    def test_usage_count_reflects_vendor_assignments(self) -> None:
+        """usage_count equals the number of vendors the tag is assigned to."""
+        from django.db.models import Count
+
+        from tests.factories import VendorFactory
+
+        tag = TagFactory(tag_type=TagType.CATEGORY)
+        v1 = VendorFactory()
+        v2 = VendorFactory()
+        v1.tags.add(tag)
+        v2.tags.add(tag)
+
+        annotated = Tag.objects.annotate(usage_count=Count("vendors")).get(id=tag.id)
+        assert annotated.usage_count == 2
+
+
+# ---------------------------------------------------------------------------
 # Geo — Area
 # ---------------------------------------------------------------------------
 

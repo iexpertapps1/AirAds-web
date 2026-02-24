@@ -45,6 +45,7 @@ def create_tag(
     display_label: str = "",
     display_order: int = 0,
     icon_name: str = "",
+    expires_at: Any | None = None,
 ) -> Tag:
     """Create a new Tag. SYSTEM tags cannot be created via API.
 
@@ -79,6 +80,7 @@ def create_tag(
         display_label=display_label or name.strip(),
         display_order=display_order,
         icon_name=icon_name,
+        expires_at=expires_at,
     )
     log_action(
         action="TAG_CREATED",
@@ -120,9 +122,21 @@ def update_tag(
     if updates.get("tag_type") == TagType.SYSTEM:
         raise PermissionError(_SYSTEM_TAG_ERROR)
 
-    before = {"name": tag.name, "display_label": tag.display_label, "is_active": tag.is_active}
+    before = {
+        "name": tag.name,
+        "display_label": tag.display_label,
+        "is_active": tag.is_active,
+    }
 
-    allowed_fields = {"name", "display_label", "display_order", "icon_name", "is_active", "tag_type"}
+    allowed_fields = {
+        "name",
+        "display_label",
+        "display_order",
+        "icon_name",
+        "is_active",
+        "tag_type",
+        "expires_at",
+    }
     for field, value in updates.items():
         if field in allowed_fields:
             setattr(tag, field, value)

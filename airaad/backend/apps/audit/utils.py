@@ -77,6 +77,7 @@ def log_action(
         if pk is not None:
             try:
                 import uuid
+
                 target_id = uuid.UUID(str(pk))
             except (ValueError, AttributeError):
                 target_id = None

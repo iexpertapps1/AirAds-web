@@ -4,6 +4,7 @@ AirAd — apps/vendors/tasks.py
 Phase B placeholder tasks registered in celery_app.py Beat schedule.
 Full implementation deferred to Phase B (TASK-B06).
 """
+
 from __future__ import annotations
 
 import logging

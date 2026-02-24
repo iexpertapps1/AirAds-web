@@ -56,8 +56,12 @@ class FieldVisit(models.Model):
         verbose_name_plural = "Field Visits"
         ordering = ["-visited_at"]
         indexes = [
-            models.Index(fields=["vendor", "visited_at"], name="fieldvisit_vendor_date_idx"),
-            models.Index(fields=["agent", "visited_at"], name="fieldvisit_agent_date_idx"),
+            models.Index(
+                fields=["vendor", "visited_at"], name="fieldvisit_vendor_date_idx"
+            ),
+            models.Index(
+                fields=["agent", "visited_at"], name="fieldvisit_agent_date_idx"
+            ),
         ]
 
     def __str__(self) -> str:
@@ -98,7 +102,9 @@ class FieldPhoto(models.Model):
         verbose_name_plural = "Field Photos"
         ordering = ["-uploaded_at"]
         indexes = [
-            models.Index(fields=["field_visit", "is_active"], name="fieldphoto_visit_active_idx"),
+            models.Index(
+                fields=["field_visit", "is_active"], name="fieldphoto_visit_active_idx"
+            ),
         ]
 
     def __str__(self) -> str:

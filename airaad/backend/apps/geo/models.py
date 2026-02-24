@@ -26,7 +26,9 @@ class Country(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, unique=True)
-    code = models.CharField(max_length=2, unique=True, db_index=True, help_text="ISO 3166-1 alpha-2")
+    code = models.CharField(
+        max_length=2, unique=True, db_index=True, help_text="ISO 3166-1 alpha-2"
+    )
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -61,7 +63,9 @@ class City(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    country = models.ForeignKey(Country, on_delete=models.PROTECT, related_name="cities")
+    country = models.ForeignKey(
+        Country, on_delete=models.PROTECT, related_name="cities"
+    )
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=120, unique=True, db_index=True)
     aliases = models.JSONField(
@@ -136,6 +140,12 @@ class Area(models.Model):
         blank=True,
         help_text="GPS centre point. GiST index added via RunSQL migration.",
     )
+    boundary_polygon = gis_models.PolygonField(
+        srid=4326,
+        null=True,
+        blank=True,
+        help_text="Area boundary polygon for containment queries (spec §2.2).",
+    )
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -180,6 +190,11 @@ class Landmark(models.Model):
     location = gis_models.PointField(
         srid=4326,
         help_text="GPS point. GiST index added via RunSQL migration.",
+    )
+    ar_anchor_points = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Array of AR anchor coordinates [{lon, lat}] for AR clustering (spec §2.2, §5.2).",
     )
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)

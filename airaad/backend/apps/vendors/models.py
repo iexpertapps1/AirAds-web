@@ -22,6 +22,7 @@ class QCStatus(models.TextChoices):
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Rejected"
     NEEDS_REVIEW = "NEEDS_REVIEW", "Needs Review"
+    FLAGGED = "FLAGGED", "Flagged"
 
 
 class DataSource(models.TextChoices):
@@ -102,6 +103,12 @@ class Vendor(models.Model):
         srid=4326,
         help_text="GPS location. GiST index added via RunSQL migration.",
     )
+    gps_baseline = gis_models.PointField(
+        srid=4326,
+        null=True,
+        blank=True,
+        help_text="Original GPS location from data source for change detection.",
+    )
     address_text = models.CharField(max_length=500, blank=True)
 
     # Geo hierarchy
@@ -169,6 +176,33 @@ class Vendor(models.Model):
         related_name="vendors",
     )
 
+    # Claim status — False until vendor owner verifies ownership (Phase B claim flow)
+    claimed_status = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="True once the business owner has verified and claimed this listing.",
+    )
+
+    # Storefront photo — S3 object key ONLY (never a public URL)
+    storefront_photo_key = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="S3 object key for the primary storefront photo. Generate presigned URL on read.",
+    )
+
+    # Google Places integration
+    google_place_id = models.CharField(
+        max_length=300,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="Google Places place_id — used for upsert deduplication on re-import",
+    )
+    website_url = models.URLField(
+        blank=True, default="", help_text="Business website from Google Places"
+    )
+
     # Soft delete (R6) — default manager filters this out automatically
     is_deleted = models.BooleanField(default=False, db_index=True)
 
@@ -187,7 +221,9 @@ class Vendor(models.Model):
         ordering = ["-created_at"]
         indexes = [
             # Composite indexes per plan spec
-            models.Index(fields=["qc_status", "is_deleted"], name="vendor_qc_deleted_idx"),
+            models.Index(
+                fields=["qc_status", "is_deleted"], name="vendor_qc_deleted_idx"
+            ),
             models.Index(fields=["area", "is_deleted"], name="vendor_area_deleted_idx"),
             models.Index(fields=["data_source"], name="vendor_data_source_idx"),
         ]

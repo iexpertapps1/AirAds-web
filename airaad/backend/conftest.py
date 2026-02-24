@@ -119,6 +119,26 @@ def data_entry_user(db):
 
 
 @pytest.fixture
+def admin_user(db):
+    """Create and return a DATA_ENTRY AdminUser (generic admin_user alias for tests).
+
+    Args:
+        db: pytest-django db fixture.
+
+    Returns:
+        AdminUser instance with DATA_ENTRY role.
+    """
+    from apps.accounts.models import AdminRole, AdminUser
+
+    return AdminUser.objects.create_user(
+        email="adminuser@test.airaad.com",
+        password="TestPass@123!",
+        full_name="Test Admin User",
+        role=AdminRole.DATA_ENTRY,
+    )
+
+
+@pytest.fixture
 def qa_reviewer_user(db):
     """Create and return a QA_REVIEWER AdminUser.
 

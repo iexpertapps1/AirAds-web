@@ -18,7 +18,11 @@ from django.utils import timezone
 from pydantic import ValidationError as PydanticValidationError
 
 from apps.audit.utils import log_action
-from core.encryption import EncryptionError, decrypt, encrypt  # noqa: F401 (EncryptionError used in docstrings)
+from core.encryption import (  # noqa: F401 (EncryptionError used in docstrings)
+    EncryptionError,
+    decrypt,
+    encrypt,
+)
 from core.schemas import BusinessHoursSchema
 
 from .models import DataSource, QCStatus, Vendor
@@ -32,6 +36,7 @@ ERROR_LOG_CAP = 1000
 # Vendor sub-resource services
 # ---------------------------------------------------------------------------
 
+
 def get_vendor_photos(vendor_pk: str) -> list[dict[str, Any]]:
     """Return FieldPhotos for a vendor with presigned S3 URLs.
 
@@ -44,10 +49,14 @@ def get_vendor_photos(vendor_pk: str) -> list[dict[str, Any]]:
     from apps.field_ops.models import FieldPhoto
     from core.storage import StorageError, generate_presigned_url
 
-    photos = FieldPhoto.objects.filter(
-        field_visit__vendor_id=vendor_pk,
-        is_active=True,
-    ).select_related("field_visit").order_by("-uploaded_at")
+    photos = (
+        FieldPhoto.objects.filter(
+            field_visit__vendor_id=vendor_pk,
+            is_active=True,
+        )
+        .select_related("field_visit")
+        .order_by("-uploaded_at")
+    )
 
     result = []
     for photo in photos:
@@ -55,14 +64,16 @@ def get_vendor_photos(vendor_pk: str) -> list[dict[str, Any]]:
             url = generate_presigned_url(photo.s3_key)
         except (StorageError, ValueError):
             url = ""
-        result.append({
-            "id": photo.id,
-            "field_visit_id": photo.field_visit_id,
-            "presigned_url": url,
-            "caption": photo.caption,
-            "is_active": photo.is_active,
-            "uploaded_at": photo.uploaded_at,
-        })
+        result.append(
+            {
+                "id": photo.id,
+                "field_visit_id": photo.field_visit_id,
+                "presigned_url": url,
+                "caption": photo.caption,
+                "is_active": photo.is_active,
+                "uploaded_at": photo.uploaded_at,
+            }
+        )
     return result
 
 
@@ -77,9 +88,13 @@ def get_vendor_visits(vendor_pk: str) -> Any:
     """
     from apps.field_ops.models import FieldVisit
 
-    return FieldVisit.objects.filter(
-        vendor_id=vendor_pk,
-    ).select_related("agent").order_by("-visited_at")
+    return (
+        FieldVisit.objects.filter(
+            vendor_id=vendor_pk,
+        )
+        .select_related("agent")
+        .order_by("-visited_at")
+    )
 
 
 def get_vendor_tags(vendor_pk: str) -> Any:
@@ -96,7 +111,9 @@ def get_vendor_tags(vendor_pk: str) -> Any:
 
 
 @transaction.atomic
-def assign_vendor_tag(vendor_pk: str, tag_id: str, actor: Any, request: HttpRequest) -> Any:
+def assign_vendor_tag(
+    vendor_pk: str, tag_id: str, actor: Any, request: HttpRequest
+) -> Any:
     """Assign a tag to a vendor.
 
     Args:
@@ -148,7 +165,9 @@ def assign_vendor_tag(vendor_pk: str, tag_id: str, actor: Any, request: HttpRequ
 
 
 @transaction.atomic
-def remove_vendor_tag(vendor_pk: str, tag_pk: str, actor: Any, request: HttpRequest) -> None:
+def remove_vendor_tag(
+    vendor_pk: str, tag_pk: str, actor: Any, request: HttpRequest
+) -> None:
     """Remove a tag from a vendor.
 
     Args:
@@ -204,6 +223,7 @@ def get_vendor_analytics_stub(vendor_pk: str) -> dict[str, int]:
 # Business hours validation
 # ---------------------------------------------------------------------------
 
+
 def validate_business_hours(hours_data: dict[str, Any]) -> dict[str, Any]:
     """Validate business hours dict against BusinessHoursSchema.
 
@@ -226,6 +246,7 @@ def validate_business_hours(hours_data: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Phone encryption helpers
 # ---------------------------------------------------------------------------
+
 
 def encrypt_phone(phone: str) -> bytes:
     """Encrypt a phone number string using AES-256-GCM.
@@ -260,6 +281,7 @@ def decrypt_phone(ciphertext: bytes) -> str:
 # ---------------------------------------------------------------------------
 # Vendor CRUD
 # ---------------------------------------------------------------------------
+
 
 @transaction.atomic
 def create_vendor(
@@ -407,13 +429,23 @@ def update_vendor(
         updates["business_hours"] = validate_business_hours(updates["business_hours"])
 
     if "gps_lon" in updates and "gps_lat" in updates:
-        vendor.gps_point = Point(updates.pop("gps_lon"), updates.pop("gps_lat"), srid=4326)
+        vendor.gps_point = Point(
+            updates.pop("gps_lon"), updates.pop("gps_lat"), srid=4326
+        )
 
     allowed_fields = {
-        "business_name", "slug", "description", "address_text",
-        "business_hours", "qc_notes", "data_source",
-        "city_id", "area_id", "landmark_id",
-        "storefront_photo_key", "claimed_status",
+        "business_name",
+        "slug",
+        "description",
+        "address_text",
+        "business_hours",
+        "qc_notes",
+        "data_source",
+        "city_id",
+        "area_id",
+        "landmark_id",
+        "storefront_photo_key",
+        "claimed_status",
     }
     changed_fields: list[str] = []
     for field, value in updates.items():
@@ -487,10 +519,13 @@ def update_qc_status(
     """
     valid_statuses = [s.value for s in QCStatus]
     if new_status not in valid_statuses:
-        raise ValueError(f"Invalid QC status '{new_status}'. Must be one of {valid_statuses}")
+        raise ValueError(
+            f"Invalid QC status '{new_status}'. Must be one of {valid_statuses}"
+        )
 
     if new_status == QCStatus.APPROVED:
         from apps.tags.models import TagType
+
         has_category_tag = vendor.tags.filter(
             tag_type=TagType.CATEGORY,
             is_active=True,
@@ -507,7 +542,15 @@ def update_qc_status(
     vendor.qc_reviewed_by = reviewer
     vendor.qc_reviewed_at = timezone.now()
     vendor.qc_notes = notes
-    vendor.save(update_fields=["qc_status", "qc_reviewed_by", "qc_reviewed_at", "qc_notes", "updated_at"])
+    vendor.save(
+        update_fields=[
+            "qc_status",
+            "qc_reviewed_by",
+            "qc_reviewed_at",
+            "qc_notes",
+            "updated_at",
+        ]
+    )
 
     log_action(
         action="VENDOR_QC_STATUS_CHANGED",

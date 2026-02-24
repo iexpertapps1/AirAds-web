@@ -30,9 +30,14 @@ logger = logging.getLogger(__name__)
 class ImportBatchListCreateView(APIView):
     """List import batches or upload a new CSV."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.DATA_ENTRY,
+            AdminRole.OPERATIONS_MANAGER,
+        )
+    ]
     parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
@@ -44,6 +49,7 @@ class ImportBatchListCreateView(APIView):
         """Return paginated list of import batches for the current user.
 
         SUPER_ADMIN sees all batches; other roles see only their own.
+        Optional query param: ?import_type=CSV|GOOGLE_PLACES|GOOGLE_PLACES_ENHANCED
 
         Args:
             request: Authenticated HTTP request.
@@ -52,15 +58,26 @@ class ImportBatchListCreateView(APIView):
             Paginated list of ImportBatch records.
         """
         if request.user.role == AdminRole.SUPER_ADMIN:
-            qs = ImportBatch.objects.select_related("created_by").order_by("-created_at")
+            qs = ImportBatch.objects.select_related("created_by", "area").order_by(
+                "-created_at"
+            )
         else:
-            qs = ImportBatch.objects.filter(
-                created_by=request.user
-            ).select_related("created_by").order_by("-created_at")
+            qs = (
+                ImportBatch.objects.filter(created_by=request.user)
+                .select_related("created_by", "area")
+                .order_by("-created_at")
+            )
+
+        # Server-side import_type filter
+        import_type = request.query_params.get("import_type")
+        if import_type:
+            qs = qs.filter(import_type=import_type)
 
         paginator = StandardResultsPagination()
         page = paginator.paginate_queryset(qs, request)
-        return paginator.get_paginated_response(ImportBatchSerializer(page, many=True).data)
+        return paginator.get_paginated_response(
+            ImportBatchSerializer(page, many=True).data
+        )
 
     @extend_schema(
         tags=["Imports"],
@@ -109,14 +126,22 @@ class ImportBatchListCreateView(APIView):
 class ImportBatchDetailView(APIView):
     """Retrieve a single import batch by ID."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.DATA_ENTRY,
+            AdminRole.OPERATIONS_MANAGER,
+        )
+    ]
 
     @extend_schema(
         tags=["Imports"],
         summary="Get import batch detail",
-        responses={200: ImportBatchSerializer, 404: OpenApiResponse(description="Not found")},
+        responses={
+            200: ImportBatchSerializer,
+            404: OpenApiResponse(description="Not found"),
+        },
     )
     def get(self, request: Request, pk: str) -> Response:
         """Return a single ImportBatch by ID.
@@ -132,7 +157,12 @@ class ImportBatchDetailView(APIView):
             batch = get_batch_or_404(batch_id=pk, actor=request.user)
         except ImportBatch.DoesNotExist:
             return Response(
-                {"success": False, "data": None, "message": "Import batch not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Import batch not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         return success_response(data=ImportBatchSerializer(batch).data)

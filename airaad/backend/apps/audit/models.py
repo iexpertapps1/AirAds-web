@@ -107,7 +107,9 @@ class AuditLog(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["target_type", "target_id"], name="audit_target_idx"),
-            models.Index(fields=["actor", "created_at"], name="audit_actor_created_idx"),
+            models.Index(
+                fields=["actor", "created_at"], name="audit_actor_created_idx"
+            ),
         ]
         # Enforce immutability at DB level — no update permission
         default_permissions = ("add", "view")

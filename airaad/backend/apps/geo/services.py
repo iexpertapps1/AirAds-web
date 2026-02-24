@@ -12,6 +12,7 @@ from typing import Any
 
 from django.db import transaction
 from django.http import HttpRequest
+
 from apps.audit.utils import log_action
 
 from .models import Area, City, Country, Landmark
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Country
 # ---------------------------------------------------------------------------
+
 
 def create_country(
     name: str,
@@ -64,6 +66,7 @@ def create_country(
 # ---------------------------------------------------------------------------
 # City
 # ---------------------------------------------------------------------------
+
 
 @transaction.atomic
 def create_city(
@@ -158,7 +161,14 @@ def update_city(
         "is_active": city.is_active,
     }
 
-    allowed_fields = {"name", "aliases", "display_order", "is_active", "centroid", "bounding_box"}
+    allowed_fields = {
+        "name",
+        "aliases",
+        "display_order",
+        "is_active",
+        "centroid",
+        "bounding_box",
+    }
     for field, value in updates.items():
         if field in allowed_fields:
             setattr(city, field, value)
@@ -178,6 +188,7 @@ def update_city(
 # ---------------------------------------------------------------------------
 # Area
 # ---------------------------------------------------------------------------
+
 
 @transaction.atomic
 def create_area(
@@ -282,7 +293,14 @@ def update_area(
         "is_active": area.is_active,
     }
 
-    allowed_fields = {"name", "aliases", "is_active", "centroid", "boundary_polygon", "parent_area"}
+    allowed_fields = {
+        "name",
+        "aliases",
+        "is_active",
+        "centroid",
+        "boundary_polygon",
+        "parent_area",
+    }
     for field, value in updates.items():
         if field in allowed_fields:
             setattr(area, field, value)
@@ -302,6 +320,7 @@ def update_area(
 # ---------------------------------------------------------------------------
 # Landmark
 # ---------------------------------------------------------------------------
+
 
 @transaction.atomic
 def create_landmark(
@@ -345,7 +364,9 @@ def create_landmark(
     # Spec §2.3: no duplicate aliases across locations in same city
     normalised = [a.lower().strip() for a in aliases]
     city = area.city
-    existing_landmarks = Landmark.objects.filter(area__city=city).values_list("aliases", flat=True)
+    existing_landmarks = Landmark.objects.filter(area__city=city).values_list(
+        "aliases", flat=True
+    )
     for existing_aliases in existing_landmarks:
         for existing in existing_aliases:
             if existing.lower().strip() in normalised:
@@ -393,7 +414,9 @@ def update_landmark(
         ValueError: If 'slug' is included in updates.
     """
     if "slug" in updates:
-        raise ValueError("Landmark slug is immutable and cannot be changed after creation")
+        raise ValueError(
+            "Landmark slug is immutable and cannot be changed after creation"
+        )
 
     before = {
         "name": landmark.name,

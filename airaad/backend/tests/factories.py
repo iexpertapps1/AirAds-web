@@ -13,6 +13,7 @@ from django.contrib.gis.geos import Point
 from django.utils import timezone
 
 from apps.accounts.models import AdminRole, AdminUser
+from apps.analytics.models import AnalyticsEvent, EventType
 from apps.audit.models import AuditLog
 from apps.field_ops.models import FieldPhoto, FieldVisit
 from apps.geo.models import Area, City, Country, Landmark
@@ -122,6 +123,8 @@ class VendorFactory(factory.django.DjangoModelFactory):
     phone_number_encrypted = factory.LazyFunction(lambda: encrypt("+923001234567"))
     qc_status = QCStatus.PENDING
     is_deleted = False
+    claimed_status = False
+    storefront_photo_key = ""
     business_hours = factory.LazyFunction(
         lambda: {
             day: {"open": "09:00", "close": "21:00", "is_closed": False}
@@ -169,6 +172,19 @@ class FieldPhotoFactory(factory.django.DjangoModelFactory):
     id = factory.LazyFunction(uuid.uuid4)
     field_visit = factory.SubFactory(FieldVisitFactory)
     s3_key = factory.Sequence(lambda n: f"field-photos/test-photo-{n}.jpg")
+
+
+class AnalyticsEventFactory(factory.django.DjangoModelFactory):
+    """Factory for AnalyticsEvent. Default type: VENDOR_VIEW."""
+
+    class Meta:
+        model = AnalyticsEvent
+
+    id = factory.LazyFunction(uuid.uuid4)
+    event_type = EventType.VENDOR_VIEW
+    vendor = factory.SubFactory(VendorFactory)
+    actor_id = factory.LazyFunction(uuid.uuid4)
+    metadata = factory.LazyFunction(dict)
 
 
 class AuditLogFactory(factory.django.DjangoModelFactory):

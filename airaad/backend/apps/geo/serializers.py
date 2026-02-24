@@ -38,9 +38,18 @@ class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
         fields = [
-            "id", "country", "country_name", "name", "slug",
-            "aliases", "centroid", "latitude", "longitude",
-            "is_active", "display_order", "created_at",
+            "id",
+            "country",
+            "country_name",
+            "name",
+            "slug",
+            "aliases",
+            "centroid",
+            "latitude",
+            "longitude",
+            "is_active",
+            "display_order",
+            "created_at",
         ]
         read_only_fields = ["id", "slug", "centroid", "country_name", "created_at"]
 
@@ -69,9 +78,19 @@ class AreaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Area
         fields = [
-            "id", "city", "city_name", "parent_area", "name", "slug",
-            "aliases", "centroid", "latitude", "longitude",
-            "is_active", "created_at",
+            "id",
+            "city",
+            "city_name",
+            "parent_area",
+            "name",
+            "slug",
+            "aliases",
+            "centroid",
+            "latitude",
+            "longitude",
+            "boundary_polygon",
+            "is_active",
+            "created_at",
         ]
         read_only_fields = ["id", "slug", "centroid", "city_name", "created_at"]
 
@@ -100,9 +119,18 @@ class LandmarkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Landmark
         fields = [
-            "id", "area", "area_name", "name", "slug",
-            "aliases", "location", "latitude", "longitude",
-            "is_active", "created_at",
+            "id",
+            "area",
+            "area_name",
+            "name",
+            "slug",
+            "aliases",
+            "location",
+            "latitude",
+            "longitude",
+            "ar_anchor_points",
+            "is_active",
+            "created_at",
         ]
         read_only_fields = ["id", "slug", "location", "area_name", "created_at"]
 

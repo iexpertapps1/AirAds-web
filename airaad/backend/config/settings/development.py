@@ -9,7 +9,7 @@ from .base import env
 # ---------------------------------------------------------------------------
 # Security
 # ---------------------------------------------------------------------------
-DEBUG = True
+DEBUG = env.bool("DEBUG", default=True)
 ALLOWED_HOSTS = ["*"]
 
 # ---------------------------------------------------------------------------
@@ -18,7 +18,9 @@ ALLOWED_HOSTS = ["*"]
 # ---------------------------------------------------------------------------
 DATABASES = {
     "default": {
-        **env.db("DATABASE_URL", default="postgis://airaad:airaad@localhost:5432/airaad_db"),
+        **env.db(
+            "DATABASE_URL", default="postgis://airaad:airaad@localhost:5432/airaad_db"
+        ),
         "ENGINE": "django.contrib.gis.db.backends.postgis",
         "CONN_MAX_AGE": 60,
     }

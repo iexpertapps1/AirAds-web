@@ -22,7 +22,9 @@ from rest_framework.views import exception_handler
 logger = logging.getLogger(__name__)
 
 
-def custom_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:
+def custom_exception_handler(
+    exc: Exception, context: dict[str, Any]
+) -> Response | None:
     """Wrap DRF exceptions into the standard AirAd response envelope.
 
     Calls DRF's default exception_handler first. If DRF handles the exception,

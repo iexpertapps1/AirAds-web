@@ -57,7 +57,7 @@ jobs:
         run: flake8 apps/ core/ config/ celery_app.py
 
       - name: isort — import order
-        run: isort --check-only --diff apps/ core/ config/ celery_app.py
+        run: isort --check-only --diff --profile black apps/ core/ config/ celery_app.py
 
       - name: black — code formatting
         run: black --check --diff apps/ core/ config/ celery_app.py

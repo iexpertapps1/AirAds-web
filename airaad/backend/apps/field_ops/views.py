@@ -35,9 +35,23 @@ logger = logging.getLogger(__name__)
 class FieldVisitListCreateView(APIView):
     """List field visits or create a new one."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.FIELD_AGENT, AdminRole.QA_REVIEWER,
-    )]
+    _read_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN,
+        AdminRole.CITY_MANAGER,
+        AdminRole.FIELD_AGENT,
+        AdminRole.QA_REVIEWER,
+        AdminRole.DATA_ENTRY,
+    )
+    _write_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN,
+        AdminRole.CITY_MANAGER,
+        AdminRole.FIELD_AGENT,
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
 
     @extend_schema(
         tags=["Field Ops"],
@@ -55,7 +69,9 @@ class FieldVisitListCreateView(APIView):
         Returns:
             Paginated list of FieldVisit records.
         """
-        qs = FieldVisit.objects.select_related("vendor", "agent").order_by("-visited_at")
+        qs = FieldVisit.objects.select_related("vendor", "agent").order_by(
+            "-visited_at"
+        )
 
         if request.user.role == AdminRole.FIELD_AGENT:
             qs = qs.filter(agent=request.user)
@@ -66,7 +82,9 @@ class FieldVisitListCreateView(APIView):
 
         paginator = StandardResultsPagination()
         page = paginator.paginate_queryset(qs, request)
-        return paginator.get_paginated_response(FieldVisitSerializer(page, many=True).data)
+        return paginator.get_paginated_response(
+            FieldVisitSerializer(page, many=True).data
+        )
 
     @extend_schema(
         tags=["Field Ops"],
@@ -113,9 +131,14 @@ class FieldVisitListCreateView(APIView):
 class FieldVisitDetailView(APIView):
     """Retrieve a single field visit."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.FIELD_AGENT, AdminRole.QA_REVIEWER,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.FIELD_AGENT,
+            AdminRole.QA_REVIEWER,
+        )
+    ]
 
     @extend_schema(
         tags=["Field Ops"],
@@ -136,7 +159,12 @@ class FieldVisitDetailView(APIView):
             visit = FieldVisit.objects.select_related("vendor", "agent").get(id=pk)
         except FieldVisit.DoesNotExist:
             return Response(
-                {"success": False, "data": None, "message": "Field visit not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Field visit not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
         return success_response(data=FieldVisitSerializer(visit).data)
@@ -145,9 +173,12 @@ class FieldVisitDetailView(APIView):
 class FieldPhotoUploadView(APIView):
     """Upload a photo for a field visit."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.FIELD_AGENT,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.FIELD_AGENT,
+        )
+    ]
     parser_classes = [MultiPartParser, FormParser]
 
     @extend_schema(
@@ -173,7 +204,12 @@ class FieldPhotoUploadView(APIView):
             visit = FieldVisit.objects.get(id=visit_pk)
         except FieldVisit.DoesNotExist:
             return Response(
-                {"success": False, "data": None, "message": "Field visit not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Field visit not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -189,7 +225,9 @@ class FieldPhotoUploadView(APIView):
                 caption=serializer.validated_data.get("caption", ""),
             )
         except Exception as e:
-            logger.error("Photo upload failed", extra={"visit_id": visit_pk, "error": str(e)})
+            logger.error(
+                "Photo upload failed", extra={"visit_id": visit_pk, "error": str(e)}
+            )
             return Response(
                 {"success": False, "data": None, "message": str(e), "errors": {}},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -205,9 +243,14 @@ class FieldPhotoUploadView(APIView):
 class FieldPhotoListView(APIView):
     """List photos for a field visit."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.FIELD_AGENT, AdminRole.QA_REVIEWER,
-    )]
+    permission_classes = [
+        RolePermission.for_roles(
+            AdminRole.SUPER_ADMIN,
+            AdminRole.CITY_MANAGER,
+            AdminRole.FIELD_AGENT,
+            AdminRole.QA_REVIEWER,
+        )
+    ]
 
     @extend_schema(
         tags=["Field Ops"],
@@ -228,9 +271,16 @@ class FieldPhotoListView(APIView):
             visit = FieldVisit.objects.get(id=visit_pk)
         except FieldVisit.DoesNotExist:
             return Response(
-                {"success": False, "data": None, "message": "Field visit not found", "errors": {}},
+                {
+                    "success": False,
+                    "data": None,
+                    "message": "Field visit not found",
+                    "errors": {},
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        photos = FieldPhoto.objects.filter(field_visit=visit, is_active=True).order_by("-uploaded_at")
+        photos = FieldPhoto.objects.filter(field_visit=visit, is_active=True).order_by(
+            "-uploaded_at"
+        )
         return success_response(data=FieldPhotoSerializer(photos, many=True).data)

@@ -29,7 +29,9 @@ class HealthCheckView(APIView):
     """
 
     authentication_classes: list = []
-    permission_classes = [AllowAny]
+    permission_classes = [
+        AllowAny
+    ]  # nosemgrep: Users.syedsmacbook.Developer.AirAds-web.airaad.drf-allowany-on-sensitive-view
 
     def get(self, request: Request) -> Response:
         """Check database and Redis connectivity.
@@ -56,7 +58,11 @@ class HealthCheckView(APIView):
 
         # Redis check
         try:
-            redis_url: str = settings.REDIS_URL if hasattr(settings, "REDIS_URL") else settings.CELERY_BROKER_URL
+            redis_url: str = (
+                settings.REDIS_URL
+                if hasattr(settings, "REDIS_URL")
+                else settings.CELERY_BROKER_URL
+            )
             client = redis.from_url(redis_url, socket_connect_timeout=2)
             client.ping()
             details["redis"] = "ok"

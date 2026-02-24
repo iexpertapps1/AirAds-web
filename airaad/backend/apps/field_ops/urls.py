@@ -16,6 +16,12 @@ from .views import (
 urlpatterns = [
     path("", FieldVisitListCreateView.as_view(), name="fieldvisit-list"),
     path("<uuid:pk>/", FieldVisitDetailView.as_view(), name="fieldvisit-detail"),
-    path("<uuid:visit_pk>/photos/", FieldPhotoListView.as_view(), name="fieldphoto-list"),
-    path("<uuid:visit_pk>/photos/upload/", FieldPhotoUploadView.as_view(), name="fieldphoto-upload"),
+    path(
+        "<uuid:visit_pk>/photos/", FieldPhotoListView.as_view(), name="fieldphoto-list"
+    ),
+    path(
+        "<uuid:visit_pk>/photos/upload/",
+        FieldPhotoUploadView.as_view(),
+        name="fieldphoto-upload",
+    ),
 ]

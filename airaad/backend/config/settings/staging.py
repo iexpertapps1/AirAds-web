@@ -5,7 +5,7 @@ Uses its own DATABASE_URL and REDIS_URL — completely separate from production.
 """
 
 from .base import *  # noqa: F401, F403
-from .base import env, AWS_STORAGE_BUCKET_NAME, AWS_S3_REGION_NAME
+from .base import AWS_S3_REGION_NAME, AWS_STORAGE_BUCKET_NAME, env
 
 # ---------------------------------------------------------------------------
 # Security — identical to production
