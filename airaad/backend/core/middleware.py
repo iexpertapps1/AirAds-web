@@ -10,7 +10,6 @@ Uses uuid.uuid4() — never uuid.uuid1() (uuid1 leaks MAC address — privacy ri
 import logging
 import uuid
 from collections.abc import Callable
-from typing import Any
 
 from django.http import HttpRequest, HttpResponse
 

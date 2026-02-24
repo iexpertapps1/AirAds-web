@@ -9,7 +9,6 @@ Usage in views:
 """
 
 import logging
-from typing import Any
 
 from rest_framework.permissions import BasePermission
 from rest_framework.request import Request

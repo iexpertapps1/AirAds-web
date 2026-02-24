@@ -12,8 +12,6 @@ from typing import Any
 
 from django.db import transaction
 from django.http import HttpRequest
-from django.utils.text import slugify
-
 from apps.audit.utils import log_action
 
 from .models import Area, City, Country, Landmark
@@ -202,7 +200,7 @@ def create_area(
         actor: AdminUser performing the action.
         request: HTTP request for audit tracing.
         parent_area: Optional parent Area for nested hierarchy.
-        aliases: Optional list of alternate names.
+        aliases: Optional list of alternate names (spec §2.3: no duplicates within same city).
         centroid_lon: Optional longitude of area centre.
         centroid_lat: Optional latitude of area centre.
 
@@ -210,7 +208,7 @@ def create_area(
         Newly created Area instance.
 
     Raises:
-        ValueError: If slug is already in use.
+        ValueError: If slug is already in use or an alias already exists in the same city.
     """
     from django.contrib.gis.geos import Point
 
@@ -220,6 +218,16 @@ def create_area(
     slug = slug.strip()
     if Area.objects.filter(slug=slug).exists():
         raise ValueError(f"Area with slug '{slug}' already exists")
+
+    # Spec §2.3: no duplicate aliases across locations in same city
+    normalised = [a.lower().strip() for a in aliases]
+    existing_areas = Area.objects.filter(city=city).values_list("aliases", flat=True)
+    for existing_aliases in existing_areas:
+        for existing in existing_aliases:
+            if existing.lower().strip() in normalised:
+                raise ValueError(
+                    f"Alias '{existing}' already exists in another area within the same city."
+                )
 
     centroid = None
     if centroid_lon is not None and centroid_lat is not None:
@@ -240,6 +248,53 @@ def create_area(
         request=request,
         before={},
         after={"name": area.name, "slug": area.slug, "city": str(city.id)},
+    )
+    return area
+
+
+@transaction.atomic
+def update_area(
+    area: Area,
+    updates: dict[str, Any],
+    actor: Any,
+    request: HttpRequest,
+) -> Area:
+    """Update an Area record. slug is immutable and cannot be changed.
+
+    Args:
+        area: Area instance to update.
+        updates: Dict of field names to new values. 'slug' is rejected.
+        actor: AdminUser performing the action.
+        request: HTTP request for audit tracing.
+
+    Returns:
+        Updated Area instance.
+
+    Raises:
+        ValueError: If 'slug' is included in updates.
+    """
+    if "slug" in updates:
+        raise ValueError("Area slug is immutable and cannot be changed after creation")
+
+    before = {
+        "name": area.name,
+        "aliases": area.aliases,
+        "is_active": area.is_active,
+    }
+
+    allowed_fields = {"name", "aliases", "is_active", "centroid", "boundary_polygon", "parent_area"}
+    for field, value in updates.items():
+        if field in allowed_fields:
+            setattr(area, field, value)
+
+    area.save()
+    log_action(
+        action="AREA_UPDATED",
+        actor=actor,
+        target_obj=area,
+        request=request,
+        before=before,
+        after={"name": area.name, "is_active": area.is_active},
     )
     return area
 
@@ -270,12 +325,13 @@ def create_landmark(
         actor: AdminUser performing the action.
         request: HTTP request for audit tracing.
         aliases: Optional list of alternate names (seed data provides ≥3).
+            spec §2.3: no duplicate aliases across locations in same city.
 
     Returns:
         Newly created Landmark instance.
 
     Raises:
-        ValueError: If slug is already in use.
+        ValueError: If slug is already in use or an alias already exists in the same city.
     """
     from django.contrib.gis.geos import Point
 
@@ -285,6 +341,17 @@ def create_landmark(
     slug = slug.strip()
     if Landmark.objects.filter(slug=slug).exists():
         raise ValueError(f"Landmark with slug '{slug}' already exists")
+
+    # Spec §2.3: no duplicate aliases across locations in same city
+    normalised = [a.lower().strip() for a in aliases]
+    city = area.city
+    existing_landmarks = Landmark.objects.filter(area__city=city).values_list("aliases", flat=True)
+    for existing_aliases in existing_landmarks:
+        for existing in existing_aliases:
+            if existing.lower().strip() in normalised:
+                raise ValueError(
+                    f"Alias '{existing}' already exists in another landmark within the same city."
+                )
 
     landmark = Landmark.objects.create(
         area=area,
@@ -300,5 +367,52 @@ def create_landmark(
         request=request,
         before={},
         after={"name": landmark.name, "slug": landmark.slug, "area": str(area.id)},
+    )
+    return landmark
+
+
+@transaction.atomic
+def update_landmark(
+    landmark: Landmark,
+    updates: dict[str, Any],
+    actor: Any,
+    request: HttpRequest,
+) -> Landmark:
+    """Update a Landmark record. slug is immutable and cannot be changed.
+
+    Args:
+        landmark: Landmark instance to update.
+        updates: Dict of field names to new values. 'slug' is rejected.
+        actor: AdminUser performing the action.
+        request: HTTP request for audit tracing.
+
+    Returns:
+        Updated Landmark instance.
+
+    Raises:
+        ValueError: If 'slug' is included in updates.
+    """
+    if "slug" in updates:
+        raise ValueError("Landmark slug is immutable and cannot be changed after creation")
+
+    before = {
+        "name": landmark.name,
+        "aliases": landmark.aliases,
+        "is_active": landmark.is_active,
+    }
+
+    allowed_fields = {"name", "aliases", "is_active", "ar_anchor_points"}
+    for field, value in updates.items():
+        if field in allowed_fields:
+            setattr(landmark, field, value)
+
+    landmark.save()
+    log_action(
+        action="LANDMARK_UPDATED",
+        actor=actor,
+        target_obj=landmark,
+        request=request,
+        before=before,
+        after={"name": landmark.name, "is_active": landmark.is_active},
     )
     return landmark

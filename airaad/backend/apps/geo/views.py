@@ -8,21 +8,22 @@ All views decorated with @extend_schema.
 
 import logging
 
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, RetrieveAPIView
 
 from apps.accounts.models import AdminRole
 from apps.accounts.permissions import RolePermission
 from core.exceptions import success_response
-from core.pagination import StandardResultsPagination
 
 from .models import Area, City, Country, Landmark
 from .serializers import AreaSerializer, CitySerializer, CountrySerializer, LandmarkSerializer
-from .services import create_area, create_city, create_country, create_landmark, update_city
+from .services import (
+    create_area, create_city, create_country, create_landmark,
+    update_area, update_city, update_landmark,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,13 @@ logger = logging.getLogger(__name__)
 class CountryListCreateView(APIView):
     """List all countries or create a new one."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER,
-    )]
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER)
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
 
     @extend_schema(tags=["Geo"], summary="List countries", responses={200: CountrySerializer(many=True)})
     def get(self, request: Request) -> Response:
@@ -61,9 +66,15 @@ class CountryListCreateView(APIView):
 class CityListCreateView(APIView):
     """List all cities or create a new one."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER,
-    )]
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
 
     @extend_schema(tags=["Geo"], summary="List cities", responses={200: CitySerializer(many=True)})
     def get(self, request: Request) -> Response:
@@ -75,18 +86,16 @@ class CityListCreateView(APIView):
                    responses={201: CitySerializer})
     def post(self, request: Request) -> Response:
         """Create a new city."""
-        serializer = CitySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        d = serializer.validated_data
         try:
             from .models import Country as CountryModel
-            country = CountryModel.objects.get(id=request.data.get("country"))
+            country_id = request.data.get("country_id") or request.data.get("country")
+            country = CountryModel.objects.get(id=country_id)
             city = create_city(
                 country=country,
                 name=request.data.get("name", ""),
                 slug=request.data.get("slug", ""),
-                centroid_lon=request.data.get("longitude", 0),
-                centroid_lat=request.data.get("latitude", 0),
+                centroid_lon=request.data.get("centroid_lon") or request.data.get("longitude", 0),
+                centroid_lat=request.data.get("centroid_lat") or request.data.get("latitude", 0),
                 actor=request.user,
                 request=request._request,
                 aliases=request.data.get("aliases", []),
@@ -102,9 +111,15 @@ class CityListCreateView(APIView):
 class CityDetailView(APIView):
     """Retrieve or update a single city."""
 
-    permission_classes = [RolePermission.for_roles(
-        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER,
-    )]
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
 
     @extend_schema(tags=["Geo"], summary="Get city detail", responses={200: CitySerializer})
     def get(self, request: Request, pk: str) -> Response:
@@ -136,9 +151,15 @@ class CityDetailView(APIView):
 class AreaListCreateView(APIView):
     """List areas or create a new one."""
 
-    permission_classes = [RolePermission.for_roles(
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
         AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
-    )]
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
 
     @extend_schema(tags=["Geo"], summary="List areas", responses={200: AreaSerializer(many=True)})
     def get(self, request: Request) -> Response:
@@ -153,7 +174,8 @@ class AreaListCreateView(APIView):
     def post(self, request: Request) -> Response:
         """Create a new area."""
         try:
-            city = City.objects.get(id=request.data.get("city"))
+            city_id = request.data.get("city_id") or request.data.get("city")
+            city = City.objects.get(id=city_id)
             area = create_area(
                 city=city,
                 name=request.data.get("name", ""),
@@ -161,8 +183,8 @@ class AreaListCreateView(APIView):
                 actor=request.user,
                 request=request._request,
                 aliases=request.data.get("aliases", []),
-                centroid_lon=request.data.get("longitude"),
-                centroid_lat=request.data.get("latitude"),
+                centroid_lon=request.data.get("centroid_lon") or request.data.get("longitude"),
+                centroid_lat=request.data.get("centroid_lat") or request.data.get("latitude"),
             )
         except (ValueError, City.DoesNotExist) as e:
             return Response({"success": False, "data": None, "message": str(e), "errors": {}},
@@ -171,12 +193,98 @@ class AreaListCreateView(APIView):
                                 message="Area created", status_code=status.HTTP_201_CREATED)
 
 
+class AreaDetailView(APIView):
+    """Retrieve or update a single area."""
+
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
+
+    @extend_schema(tags=["Geo"], summary="Get area detail", responses={200: AreaSerializer})
+    def get(self, request: Request, pk: str) -> Response:
+        """Return a single area by ID."""
+        try:
+            area = Area.objects.select_related("city").get(id=pk)
+        except Area.DoesNotExist:
+            return Response({"success": False, "data": None, "message": "Area not found", "errors": {}},
+                            status=status.HTTP_404_NOT_FOUND)
+        return success_response(data=AreaSerializer(area).data)
+
+    @extend_schema(tags=["Geo"], summary="Update area (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY)",
+                   responses={200: AreaSerializer})
+    def patch(self, request: Request, pk: str) -> Response:
+        """Partially update an area. slug is immutable."""
+        try:
+            area = Area.objects.get(id=pk)
+            area = update_area(area=area, updates=dict(request.data), actor=request.user,
+                               request=request._request)
+        except Area.DoesNotExist:
+            return Response({"success": False, "data": None, "message": "Area not found", "errors": {}},
+                            status=status.HTTP_404_NOT_FOUND)
+        except ValueError as e:
+            return Response({"success": False, "data": None, "message": str(e), "errors": {}},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return success_response(data=AreaSerializer(area).data)
+
+
+class LandmarkDetailView(APIView):
+    """Retrieve or update a single landmark."""
+
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
+        AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
+
+    @extend_schema(tags=["Geo"], summary="Get landmark detail", responses={200: LandmarkSerializer})
+    def get(self, request: Request, pk: str) -> Response:
+        """Return a single landmark by ID."""
+        try:
+            landmark = Landmark.objects.select_related("area").get(id=pk)
+        except Landmark.DoesNotExist:
+            return Response({"success": False, "data": None, "message": "Landmark not found", "errors": {}},
+                            status=status.HTTP_404_NOT_FOUND)
+        return success_response(data=LandmarkSerializer(landmark).data)
+
+    @extend_schema(tags=["Geo"], summary="Update landmark (SUPER_ADMIN, CITY_MANAGER, DATA_ENTRY)",
+                   responses={200: LandmarkSerializer})
+    def patch(self, request: Request, pk: str) -> Response:
+        """Partially update a landmark. slug is immutable."""
+        try:
+            landmark = Landmark.objects.get(id=pk)
+            landmark = update_landmark(landmark=landmark, updates=dict(request.data), actor=request.user,
+                                       request=request._request)
+        except Landmark.DoesNotExist:
+            return Response({"success": False, "data": None, "message": "Landmark not found", "errors": {}},
+                            status=status.HTTP_404_NOT_FOUND)
+        except ValueError as e:
+            return Response({"success": False, "data": None, "message": str(e), "errors": {}},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return success_response(data=LandmarkSerializer(landmark).data)
+
+
 class LandmarkListCreateView(APIView):
     """List landmarks or create a new one."""
 
-    permission_classes = [RolePermission.for_roles(
+    _read_roles = RolePermission.for_roles(*AdminRole.values)
+    _write_roles = RolePermission.for_roles(
         AdminRole.SUPER_ADMIN, AdminRole.CITY_MANAGER, AdminRole.DATA_ENTRY,
-    )]
+    )
+
+    def get_permissions(self) -> list:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [self._read_roles()]
+        return [self._write_roles()]
 
     @extend_schema(tags=["Geo"], summary="List landmarks", responses={200: LandmarkSerializer(many=True)})
     def get(self, request: Request) -> Response:
@@ -191,13 +299,14 @@ class LandmarkListCreateView(APIView):
     def post(self, request: Request) -> Response:
         """Create a new landmark."""
         try:
-            area = Area.objects.get(id=request.data.get("area"))
+            area_id = request.data.get("area_id") or request.data.get("area")
+            area = Area.objects.get(id=area_id)
             landmark = create_landmark(
                 area=area,
                 name=request.data.get("name", ""),
                 slug=request.data.get("slug", ""),
-                location_lon=request.data.get("longitude", 0),
-                location_lat=request.data.get("latitude", 0),
+                location_lon=request.data.get("location_lon") or request.data.get("longitude", 0),
+                location_lat=request.data.get("location_lat") or request.data.get("latitude", 0),
                 actor=request.user,
                 request=request._request,
                 aliases=request.data.get("aliases", []),

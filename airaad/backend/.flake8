@@ -1,0 +1,16 @@
+[flake8]
+max-line-length = 120
+extend-ignore = E203, W503
+exclude =
+    migrations,
+    __pycache__,
+    .venv,
+    venv,
+    manage.py
+per-file-ignores =
+    # Management commands often have long strings
+    */management/commands/*:E501
+    # Settings files have long config lines
+    config/settings/*:E501
+    # Test files can be more relaxed
+    tests/*:E501

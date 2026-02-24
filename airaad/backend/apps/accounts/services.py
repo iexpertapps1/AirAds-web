@@ -8,8 +8,9 @@ Uses django.utils.timezone.now() — never datetime.now().
 """
 
 import logging
+import secrets
+import string
 from datetime import timedelta
-from typing import Any
 
 from django.contrib.auth import authenticate
 from django.http import HttpRequest
@@ -25,6 +26,19 @@ logger = logging.getLogger(__name__)
 # Lockout policy constants
 MAX_FAILED_ATTEMPTS: int = 5
 LOCKOUT_DURATION_MINUTES: int = 15
+
+
+def generate_temp_password(length: int = 16) -> str:
+    """Generate a cryptographically secure temporary password.
+
+    Args:
+        length: Length of the generated password. Defaults to 16.
+
+    Returns:
+        Random password string using letters, digits, and safe symbols.
+    """
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
 def authenticate_user(
@@ -126,11 +140,12 @@ def authenticate_user(
         )
         raise ValueError("Account is inactive")
 
-    # Step 5 — Success: reset counter, update IP
+    # Step 5 — Success: reset counter, update IP, clear must_change_password flag
     authenticated_user.failed_login_count = 0
     authenticated_user.locked_until = None
     authenticated_user.last_login_ip = ip_address
-    authenticated_user.save(update_fields=["failed_login_count", "locked_until", "last_login_ip"])
+    authenticated_user.must_change_password = False
+    authenticated_user.save(update_fields=["failed_login_count", "locked_until", "last_login_ip", "must_change_password"])
 
     # Step 6 — Generate JWT tokens
     refresh = RefreshToken.for_user(authenticated_user)
@@ -182,24 +197,32 @@ def logout_user(request: HttpRequest, refresh_token: str, user: AdminUser) -> No
 
 def create_admin_user(
     email: str,
-    password: str,
     full_name: str,
     role: AdminRole,
     actor: AdminUser,
     request: HttpRequest,
-) -> AdminUser:
+    password: str | None = None,
+    must_change_password: bool = True,
+) -> tuple[AdminUser, str]:
     """Create a new AdminUser account.
+
+    If password is provided it is used directly; otherwise a secure temporary
+    password is auto-generated. The plaintext password is always returned so
+    the caller can deliver it securely. It is NOT stored in plaintext — only
+    the hash via set_password().
 
     Args:
         email: Unique email address for the new user.
-        password: Raw password (will be hashed).
         full_name: Display name.
         role: AdminRole value to assign.
         actor: The AdminUser performing the creation (for AuditLog).
         request: The incoming HTTP request.
+        password: Optional plaintext password. Auto-generated if not supplied.
+        must_change_password: Whether the user must change password on first
+            login. Defaults to True.
 
     Returns:
-        The newly created AdminUser instance.
+        Tuple of (AdminUser instance, plaintext password).
 
     Raises:
         ValueError: If email is already in use.
@@ -209,11 +232,14 @@ def create_admin_user(
     if AdminUser.objects.filter(email=email).exists():
         raise ValueError(f"An account with email '{email}' already exists")
 
+    temp_password = password if password is not None else generate_temp_password()
+
     user = AdminUser.objects.create_user(
         email=email,
-        password=password,
+        password=temp_password,
         full_name=full_name,
         role=role,
+        must_change_password=must_change_password,
     )
 
     log_action(
@@ -223,6 +249,84 @@ def create_admin_user(
         request=request,
         before={},
         after={"email": email, "role": role, "full_name": full_name},
+    )
+
+    return user, temp_password
+
+
+def update_admin_user(
+    user: AdminUser,
+    updates: dict,
+    actor: AdminUser | None,
+    request,
+) -> AdminUser:
+    """Partially update an AdminUser record.
+
+    Allowed fields: full_name, role, is_active, is_locked, failed_attempts.
+    Unlocking (is_locked=False) also clears locked_until.
+    All mutations are audit-logged (R5).
+
+    Args:
+        user: The AdminUser instance to update.
+        updates: Dict of fields to update.
+        actor: The AdminUser performing the update.
+        request: The HTTP request (for audit logging).
+
+    Returns:
+        The updated AdminUser instance.
+    """
+    from apps.audit.utils import log_action
+    from django.utils import timezone
+
+    before = {
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "failed_login_count": user.failed_login_count,
+        "locked_until": str(user.locked_until) if user.locked_until else None,
+    }
+
+    update_fields = []
+
+    if "full_name" in updates:
+        user.full_name = updates["full_name"]
+        update_fields.append("full_name")
+
+    if "role" in updates:
+        user.role = updates["role"]
+        update_fields.append("role")
+
+    if "is_active" in updates:
+        user.is_active = updates["is_active"]
+        update_fields.append("is_active")
+
+    if "failed_login_count" in updates:
+        user.failed_login_count = updates["failed_login_count"]
+        update_fields.append("failed_login_count")
+
+    if "is_locked" in updates and updates["is_locked"] is False:
+        user.locked_until = None
+        user.failed_login_count = 0
+        update_fields.extend(["locked_until", "failed_login_count"])
+
+    if update_fields:
+        user.save(update_fields=list(set(update_fields)))
+
+    after = {
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "failed_login_count": user.failed_login_count,
+        "locked_until": str(user.locked_until) if user.locked_until else None,
+    }
+
+    log_action(
+        action="ADMIN_USER_UPDATED",
+        actor=actor,
+        target_obj=user,
+        request=request,
+        before=before,
+        after=after,
     )
 
     return user
