@@ -14,7 +14,6 @@ Must be placed AFTER SecurityMiddleware in settings.MIDDLEWARE.
 import logging
 from collections.abc import Callable
 
-from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger(__name__)

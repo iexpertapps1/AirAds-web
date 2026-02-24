@@ -14,7 +14,6 @@ They NEVER block the request — fire-and-forget logging only.
 """
 
 import logging
-from datetime import timedelta
 
 from django.utils import timezone
 
