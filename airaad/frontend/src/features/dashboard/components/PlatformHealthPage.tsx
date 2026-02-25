@@ -124,7 +124,7 @@ export default function PlatformHealthPage() {
       apiClient.get<HealthResponse>('/api/v1/health/').then((r) => {
         const rawStatus = r.data.status;
         const status: 'ok' | 'degraded' | 'down' =
-          rawStatus === 'ok' ? 'ok' : rawStatus === 'degraded' ? 'degraded' : 'down';
+          (rawStatus === 'ok' || rawStatus === 'healthy') ? 'ok' : rawStatus === 'degraded' ? 'degraded' : 'down';
         const result: HealthStatus = { status, db: r.data.db, cache: r.data.cache };
         if (r.data.version !== undefined) {
           result.version = r.data.version;

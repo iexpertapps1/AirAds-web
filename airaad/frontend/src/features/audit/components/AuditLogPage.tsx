@@ -22,7 +22,7 @@ import styles from './AuditLogPage.module.css';
 
 interface AuditEntry {
   id: string;
-  timestamp: string;
+  created_at: string;
   action: string;
   actor_label: string;
   target_type: string;
@@ -108,7 +108,7 @@ export default function AuditLogPage() {
 
       const csv = Papa.unparse(
         allEntries.slice(0, MAX_EXPORT_RECORDS).map((e) => ({
-          timestamp: e.timestamp,
+          timestamp: e.created_at,
           action: e.action,
           actor: e.actor_label,
           target_type: e.target_type,
@@ -161,7 +161,7 @@ export default function AuditLogPage() {
       sortable: true,
       render: (e) => (
         <span className={styles.timestamp}>
-          {new Date(e.timestamp).toLocaleString()}
+          {new Date(e.created_at).toLocaleString()}
         </span>
       ),
     },

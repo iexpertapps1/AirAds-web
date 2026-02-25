@@ -54,6 +54,7 @@ def get_platform_kpis() -> dict[str, Any]:
 
     from apps.audit.models import AuditLog
     from apps.imports.models import ImportBatch, ImportStatus
+    from apps.tags.models import Tag
     from apps.vendors.models import QCStatus, Vendor
 
     today = timezone.now().date()
@@ -133,7 +134,7 @@ def get_platform_kpis() -> dict[str, Any]:
         "imports_processing": imports_processing,
         "import_batch_count": ImportBatch.objects.count(),
         "total_areas": Vendor.objects.values("area_id").distinct().count(),
-        "total_tags": 0,
+        "total_tags": Tag.objects.filter(is_active=True).count(),
         "qc_status_breakdown": qc_status_breakdown,
         "daily_vendor_counts": daily_vendor_counts,
         "import_activity": import_activity,
