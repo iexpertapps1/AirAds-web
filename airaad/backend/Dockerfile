@@ -107,14 +107,16 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels /wheels/* && \
 # Copy application source AFTER installing dependencies (layer caching)
 COPY --chown=airaad:airaad . /app/
 
-# Collect static files (fails gracefully if env vars like SECRET_KEY not set at build time)
-RUN python manage.py collectstatic --noinput || true
+# Make startup script executable
+RUN chmod +x /app/start.sh
+
+# collectstatic is NOT run at build time — SECRET_KEY and AWS credentials
+# are only available at runtime. start.sh handles collectstatic at startup.
 
 # Switch to non-root user
 USER airaad
 
 EXPOSE 8000
 
-# gunicorn: 2 workers, bind to $PORT (Railway injects this), 120s timeout for long CSV imports
-# Shell form required for $PORT variable expansion at runtime
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --access-logfile - --error-logfile -
+# start.sh: waits for DB → runs migrations → collectstatic → gunicorn
+CMD ["./start.sh"]
